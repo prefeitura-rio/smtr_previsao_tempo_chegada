@@ -35,13 +35,47 @@ shapes_geom <- shapes_geom %>%
 
 routes <- routes %>%
     select(
-        route_id, route_short_name
+        route_id, "servico" = route_short_name
     )
 
 # juntando todas as informacoes do gtfs:
 # objetivo é uma base a nivel de serviço, para
 # mergear com gps
 
-gtfs <- routes %>%
-    right_join(trips, by = "route_id") %>%
+# servico de cada trip
+
+gtfs <- trips %>%
+    left_join(routes, by = "route_id")
+
+# paradas de cada trip
+
+gtfs <- gtfs %>%
     right_join(stop_times, by = "trip_id")
+
+# agregando para serviço
+
+gtfs <- gtfs %>%
+    select(-trip_id) %>%
+    distinct()
+
+# adicionando coordenadas dos pontos
+
+gtfs <- gtfs %>%
+    left_join(stops, by = "stop_id")
+
+# adicionando geometria das linhas
+
+gtfs <- gtfs %>%
+    left_join(shapes_geom, by = "shape_id")
+
+# transformando em objeto sf
+
+gtfs <- gtfs %>%
+    sf::st_as_sf(
+        coords = c("stop_lat", "stop_lon"),
+        crs = "WGS84"
+    )
+
+# salvando
+
+readr::write_rds(gtfs, "data/gtfs.rds")
