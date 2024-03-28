@@ -30,7 +30,7 @@ trips <- trips %>%
 
 shapes_geom <- shapes_geom %>%
     select(
-        shape_id, shape_distance, start_pt, end_pt
+        shape_id, shape_distance, shape, start_pt, end_pt
     )
 
 routes <- routes %>%
@@ -42,40 +42,55 @@ routes <- routes %>%
 # objetivo é uma base a nivel de serviço, para
 # mergear com gps
 
-# servico de cada trip
+## Primeiro, uma base com os pontos por linha
 
-gtfs <- trips %>%
-    left_join(routes, by = "route_id")
+gtfs_stops <- trips %>%
+    left_join(stop_times, by = "trip_id")
 
-# paradas de cada trip
+# agregando por serviço
 
-gtfs <- gtfs %>%
-    right_join(stop_times, by = "trip_id")
-
-# agregando para serviço
-
-gtfs <- gtfs %>%
+gtfs_stops <- gtfs_stops %>%
     select(-trip_id) %>%
     distinct()
 
+# adicionando nome dos serviços
+
+gtfs_stops <- gtfs_stops %>%
+    left_join(routes, by = "route_id")
+
 # adicionando coordenadas dos pontos
 
-gtfs <- gtfs %>%
+gtfs_stops <- gtfs_stops %>%
     left_join(stops, by = "stop_id")
 
-# adicionando geometria das linhas
+# salvando
 
-gtfs <- gtfs %>%
+readr::write_rds(gtfs_stops, "data/gtfs_stops.rds")
+
+## Agora, base com os itinerários de cada linha
+
+gtfs_shapes <- trips %>%
     left_join(shapes_geom, by = "shape_id")
+
+# agregando a nível das linhas
+
+gtfs_shapes <- gtfs_shapes %>%
+    select(-trip_id) %>%
+    distinct()
+
+# servico de cada linha
+
+gtfs_shapes <- gtfs_shapes %>%
+    left_join(routes, by = "route_id")
 
 # transformando em objeto sf
 
-gtfs <- gtfs %>%
+gtfs_shapes <- gtfs_shapes %>%
     sf::st_as_sf(
-        coords = c("stop_lat", "stop_lon"),
+        wkt = "shape",
         crs = "WGS84"
     )
 
 # salvando
 
-readr::write_rds(gtfs, "data/gtfs.rds")
+readr::write_rds(gtfs_shapes, "data/gtfs_shapes.rds")

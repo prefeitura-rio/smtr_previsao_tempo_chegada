@@ -3,24 +3,24 @@
     "path": "C:/Users/igorr/Documents/GitHub/smtr_previsao_tempo_chegada/puc/gtfs_servicos.R",
     "project_path": "gtfs_servicos.R",
     "type": "r_source",
-    "hash": "0",
+    "hash": "4290800158",
     "contents": "",
-    "dirty": true,
+    "dirty": false,
     "created": 1711652949088.0,
     "source_on_save": false,
     "relative_order": 2,
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "81,0",
-        "scrollLine": "60"
+        "cursorPosition": "96,0",
+        "scrollLine": "75"
     },
     "folds": "",
-    "lastKnownWriteTime": 1711657775,
+    "lastKnownWriteTime": 1711659282,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1711657779468,
+    "last_content_update": 1711659282379,
     "read_only": false,
     "read_only_alternatives": []
 }
