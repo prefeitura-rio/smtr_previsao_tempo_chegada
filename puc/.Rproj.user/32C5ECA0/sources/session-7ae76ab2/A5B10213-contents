@@ -1,0 +1,15 @@
+library(basedosdados)
+
+set_billing_id("inlaid-oasis-309716")
+
+query_subsidies <- "SELECT * FROM `datario.transporte_rodoviario_municipal.subsidio_onibus`"
+
+download(query_subsidies, path = "F:/Dados/SMTR/bus_subsidies.csv")
+
+subsidies <- readr::read_csv("F:/Dados/SMTR/bus_subsidies.csv")
+
+readr::write_rds(subsidies, "data/subsidies.rds")
+
+query_trips <- "SELECT * FROM `datario.transporte_rodoviario_municipal.viagem_onibus`"
+
+download(query_trips, path = "F:/Dados/SMTR/bus_trips.csv")
