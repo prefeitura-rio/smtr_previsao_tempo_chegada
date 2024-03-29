@@ -9,6 +9,8 @@ trips <- readr::read_csv("data-raw/trips_sample.csv")
 
 shapes_geom <- readr::read_csv("data-raw/shapes_geom_sample.csv")
 
+shapes <- readr::read_csv("data-raw/shapes_sample.csv")
+
 routes <- readr::read_csv("data-raw/routes_sample.csv")
 
 # mantendo apenas algumas colunas
@@ -36,6 +38,11 @@ shapes_geom <- shapes_geom %>%
 routes <- routes %>%
     select(
         route_id, "servico" = route_short_name
+    )
+
+shapes <- shapes %>%
+    select(
+        shape_id, shape_pt_lat, shape_pt_lon, shape_pt_sequence, shape_dist_traveled
     )
 
 # juntando todas as informacoes do gtfs:
@@ -70,7 +77,7 @@ readr::write_rds(gtfs_stops, "data/gtfs_stops.rds")
 ## Agora, base com os itinerários de cada linha
 
 gtfs_shapes <- trips %>%
-    left_join(shapes_geom, by = "shape_id")
+    left_join(shapes, by = "shape_id", relationship = "many-to-many")
 
 # agregando a nível das linhas
 
@@ -87,7 +94,7 @@ gtfs_shapes <- gtfs_shapes %>%
 
 gtfs_shapes <- gtfs_shapes %>%
     sf::st_as_sf(
-        wkt = "shape",
+        coords = c("shape_pt_lat", "shape_pt_lon"),
         crs = "WGS84"
     )
 

@@ -13,6 +13,7 @@ query_gps <- paste("SELECT timestamp_gps, data, hora, servico, latitude, longitu
     "tipo_parada, flag_trajeto_correto, velocidade_instantanea, velocidade_estimada_10_min,",
     "distancia, flag_em_operacao",
     "FROM `rj-smtr.br_rj_riodejaneiro_veiculos.gps_sppo`",
+    "ORDER BY servico, data, timestamp_gps",
     "WHERE (data = \"2024-03-19\" OR data = \"2024-03-26\")",
     "AND flag_em_operacao = TRUE")
 
@@ -39,6 +40,11 @@ download(query_trips, path = "data-raw/trips_sample.csv")
 query_shapes <- "SELECT * FROM `rj-smtr.gtfs.shapes_geom` WHERE feed_start_date = \"2024-03-18\""
 
 download(query_shapes, path = "data-raw/shapes_geom_sample.csv")
+
+# shapes (shape_id)
+query_shapes <- "SELECT * FROM `rj-smtr.gtfs.shapes` WHERE feed_start_date = \"2024-03-18\""
+
+download(query_shapes, path = "data-raw/shapes_sample.csv")
 
 # routes (route_id, service)
 query_routes <- "SELECT * FROM `rj-smtr.gtfs.routes` WHERE feed_start_date = \"2024-03-18\""
