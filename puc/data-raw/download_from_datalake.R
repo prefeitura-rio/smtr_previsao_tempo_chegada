@@ -9,13 +9,15 @@ source <- "F:/Dados/SMTR"
 ## dados de GPS deste ano (cada dia pesa uns 1.3GB)
 
 # duas terças-feiras consecutivas
-query_gps <- paste("SELECT timestamp_gps, data, hora, servico, latitude, longitude, flag_em_movimento,",
-    "tipo_parada, flag_trajeto_correto, velocidade_instantanea, velocidade_estimada_10_min,",
-    "distancia, flag_em_operacao",
-    "FROM `rj-smtr.br_rj_riodejaneiro_veiculos.gps_sppo`",
-    "ORDER BY servico, data, timestamp_gps",
-    "WHERE (data = \"2024-03-19\" OR data = \"2024-03-26\")",
-    "AND flag_em_operacao = TRUE")
+query_gps <- paste(
+  "SELECT timestamp_gps, data, hora, servico, latitude, longitude, flag_em_movimento,",
+  "tipo_parada, flag_trajeto_correto, velocidade_instantanea, velocidade_estimada_10_min,",
+  "distancia, flag_em_operacao, id_veiculo",
+  "FROM `rj-smtr.br_rj_riodejaneiro_veiculos.gps_sppo`",
+  "WHERE (data = \"2024-03-19\" OR data = \"2024-03-26\")",
+  "AND flag_em_operacao = TRUE",
+  "ORDER BY servico, id_veiculo, timestamp_gps"
+)
 
 download(query_gps, path = file.path(source, "gps_sample.csv"))
 
