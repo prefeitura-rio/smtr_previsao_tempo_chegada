@@ -22,17 +22,65 @@ base_validacao <- function(serv, gps, gtfs_stops) {
   # projetando a posição de gps na shapefile:
   # obter a distancia total que o ônibus já percorreu
 
-  gtfs_stops <- gtfs_stops %>%
+  gtfs_shapes <- gtfs_shapes %>%
     filter(servico == serv) # pontos deste serviço
-
-  # calcula o ponto mais próximo de cada observação
-  nearest <- sf::st_nearest_feature(
-    gps,
-    gtfs_stops
-  )
-
+  
+  gtfs_shapes <- gtfs_shapes %>%
+      arrange(shape_pt_sequence) # ordenando pela ordem dos pontos
+    
+  # a principio nao sabemos qual shape_id o onibus esta seguindo:
+  # em geral é um pra ida e um pra volta:
+  
+  # como aproximação vemos isso passo-a-passo:
+  # em cada observação o ônibus é visto próximo a um ponto do shape.
+  # se, na obs seguinte, ele seguiu o caminho previsto, está neste shape
+  
+  # para cada shape_id, calcula o ponto mais próximo
+  # de cada observação
+  
+  nearest <- purrr::map(
+      unique(gtfs_shapes$shape_id),
+      function(shape) {
+          points <- gtfs_shapes
+          
+          sf::st_geometry(points)[points$shape_id != shape] <- NULL
+          
+          sf::st_nearest_feature(
+              gps,
+              points
+          )
+      }
+  ) %>%
+      unlist() %>%
+      matrix(., ncol = length(unique(gtfs_shapes$shape_id)))
+  
+  # calcula as primeiras diferenças de cada sequência de pontos
+  nearest_diff <- diff(nearest)
+  
+  # escolhe a menor diferença não negativas (sem saltos):
+  nearest_diff[nearest_diff < 0] <- Inf
+  nearest_diff_min <- apply(nearest_diff, 1, min)
+  
+  cond <- nearest_diff == nearest_diff_min
+  
+  # se há empate, deixa vazio
+  
+  cond[rowSums(cond) > 1, ] <- c(NA, rep(FALSE, ncol(cond) - 1))
+  
+  nearest <- nearest[cond]
+  
   # atribui distancias percorridas
-  gps$shape_dist_traveled <- gtfs_stops$shape_dist_traveled[nearest]
+  gps$shape_dist_traveled <- c(gtfs_stops$shape_dist_traveled[nearest], NA)
+  
+  # não deixando transbordar entre veículos
+  gps <- gps %>%
+      mutate(
+          shape_dist_traveled = ifelse(
+              id_veiculo == dplyr::lead(id_veiculo),
+              shape_dist_traveled,
+              NA
+          )
+      )
   
   # removendo geometria
   
@@ -42,7 +90,10 @@ base_validacao <- function(serv, gps, gtfs_stops) {
   # por essa distância, detectar a parada anterior e a próxima do ônibus
   
   gtfs_stops <- gtfs_stops %>%
-      arrange(stop_sequence)
+      filter(servico == serv) # pontos deste serviço
+  
+  gtfs_stops <- gtfs_stops %>%
+      arrange(stop_sequence) # ordenando pela ordem dos pontos
 
   gtfs_stops <- gtfs_stops %>%
       mutate(

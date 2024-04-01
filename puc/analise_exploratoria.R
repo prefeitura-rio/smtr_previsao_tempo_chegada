@@ -20,9 +20,12 @@ lista_servicos <- list(
 # para cada serviço, une à base de gps uma coluna com o tempo
 # que o ônibus efetivamente levou até o próximo ponto
 
-# lendo os dados
+# lendo os dados:
+
+# coordenadas de cada ponto, para cada servico e shape_id
 gtfs_stops <- readr::read_rds("data/gtfs_stops.rds")
 
+# pontinhos ao longo de cada shape, por servico e shape_id
 gtfs_shapes <- readr::read_rds("data/gtfs_shapes.rds")
 
 gps <- readr::read_csv(file.path(source, "gps_sample.csv"))
