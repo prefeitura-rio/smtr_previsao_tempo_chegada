@@ -70,6 +70,14 @@ gtfs_stops <- gtfs_stops %>%
 gtfs_stops <- gtfs_stops %>%
     left_join(stops, by = "stop_id")
 
+# transformando em sf
+
+gtfs_stops <- gtfs_stops %>%
+    sf::st_as_sf(
+        coords = c("stop_lat", "stop_lon"),
+        crs = "WGS84"
+    )
+
 # salvando
 
 readr::write_rds(gtfs_stops, "data/gtfs_stops.rds")
