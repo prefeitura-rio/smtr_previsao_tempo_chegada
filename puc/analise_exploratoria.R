@@ -41,8 +41,10 @@ source("base_validacao.R")
 # para cada serviço da lista, monta a base
 dat <- purrr::map(
     lista_servicos,
-    ~ base_validacao
+    base_validacao
 )
+
+readr::write_rds(dat, "base_validacao.rds")
 
 ###########################
 ## 2) Testes de sanidade ##

@@ -74,7 +74,7 @@ gtfs_stops <- gtfs_stops %>%
 
 gtfs_stops <- gtfs_stops %>%
     sf::st_as_sf(
-        coords = c("stop_lat", "stop_lon"),
+        coords = c("stop_lon", "stop_lat"),
         crs = "WGS84"
     )
 
@@ -102,7 +102,7 @@ gtfs_shapes <- gtfs_shapes %>%
 
 gtfs_shapes <- gtfs_shapes %>%
     sf::st_as_sf(
-        coords = c("shape_pt_lat", "shape_pt_lon"),
+        coords = c("shape_pt_lon", "shape_pt_lat"),
         crs = "WGS84"
     )
 
@@ -136,4 +136,4 @@ gtfs_shapes_geom <- gtfs_shapes_geom %>%
 
 # salvando
 
-readr::write_rds(gtfs_shapes, "data/gtfs_shapes_geom.rds")
+readr::write_rds(gtfs_shapes_geom, "data/gtfs_shapes_geom.rds")
