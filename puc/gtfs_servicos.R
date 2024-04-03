@@ -109,3 +109,23 @@ gtfs_shapes <- gtfs_shapes %>%
 # salvando
 
 readr::write_rds(gtfs_shapes, "data/gtfs_shapes.rds")
+
+## E a geometria das shapes
+
+gtfs_shapes_geom <- trips %>%
+    left_join(shapes_geom, by = "shape_id", relationship = "many-to-many")
+
+# agregando a nível das linhas
+
+gtfs_shapes_geom <- gtfs_shapes_geom %>%
+    select(-trip_id) %>%
+    distinct()
+
+# servico de cada linha
+
+gtfs_shapes_geom <- gtfs_shapes_geom %>%
+    left_join(routes, by = "route_id")
+
+# salvando
+
+readr::write_rds(gtfs_shapes, "data/gtfs_shapes_geom.rds")

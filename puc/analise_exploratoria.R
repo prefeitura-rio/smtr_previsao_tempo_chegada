@@ -28,6 +28,9 @@ gtfs_stops <- readr::read_rds("data/gtfs_stops.rds")
 # pontinhos ao longo de cada shape, por servico e shape_id
 gtfs_shapes <- readr::read_rds("data/gtfs_shapes.rds")
 
+# geometria + pontos de inicio e fim
+gtfs_shapes_geom <- readr::read_rds("data/gtfs_shapes_geom.rds")
+
 gps <- readr::read_csv(file.path(source, "gps_sample.csv"))
 
 # carrega função que monta a base de validação:
@@ -36,7 +39,7 @@ source("base_validacao.R")
 # para cada serviço da lista, monta a base
 dat <- purrr::map(
     lista_servicos,
-    ~ base_validacao(., gps, gtfs_stops)
+    ~ base_validacao
 )
 
 ###########################

@@ -5,7 +5,7 @@
 # como demora bastante, fazemos em formato de função:
 # roda apenas para um serviço por vez
 
-base_validacao <- function(serv, gps, gtfs_stops) {
+base_validacao <- function(serv) {
   # filtrando para o serviço escolhido:
 
   gps <- gps %>%
@@ -29,7 +29,10 @@ base_validacao <- function(serv, gps, gtfs_stops) {
       arrange(shape_pt_sequence) # ordenando pela ordem dos pontos
     
   # a principio nao sabemos qual shape_id o onibus esta seguindo:
-  # em geral é um pra ida e um pra volta:
+  
+  # sigo o método de
+  # https://github.com/prefeitura-rio/queries-rj-smtr/blob/master/models/projeto_subsidio_sppo/README.md
+  # crio a variável status_viagem segundo esses critérios
   
   # como aproximação vemos isso passo-a-passo:
   # em cada observação o ônibus é visto próximo a um ponto do shape.
@@ -37,6 +40,15 @@ base_validacao <- function(serv, gps, gtfs_stops) {
   
   # para cada shape_id, calcula o ponto mais próximo
   # de cada observação
+  
+  purrr::map_dfr(
+      unique(gtfs_shapes_geom$shape_id),
+      function(shape) {
+        points <- gtfs_shapes_geom %>%
+            filter(shape_id == shape)
+      }
+      
+  )
   
   nearest <- purrr::map(
       unique(gtfs_shapes$shape_id),
