@@ -1,5 +1,7 @@
 library(dplyr)
 library(ggplot2)
+library(sf)
+library(nngeo)
 
 # caminho para os dados mais pesados
 source <- "F:/Dados/SMTR"

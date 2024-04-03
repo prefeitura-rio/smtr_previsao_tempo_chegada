@@ -22,6 +22,9 @@ base_validacao <- function(serv) {
   # projetando a posição de gps na shapefile:
   # obter a distancia total que o ônibus já percorreu
 
+  gtfs_shapes_geom <- gtfs_shapes_geom %>%
+      filter(servico == serv)
+  
   gtfs_shapes <- gtfs_shapes %>%
     filter(servico == serv) # pontos deste serviço
   
@@ -34,129 +37,122 @@ base_validacao <- function(serv) {
   # https://github.com/prefeitura-rio/queries-rj-smtr/blob/master/models/projeto_subsidio_sppo/README.md
   # crio a variável status_viagem segundo esses critérios
   
-  # como aproximação vemos isso passo-a-passo:
-  # em cada observação o ônibus é visto próximo a um ponto do shape.
-  # se, na obs seguinte, ele seguiu o caminho previsto, está neste shape
-  
-  # para cada shape_id, calcula o ponto mais próximo
-  # de cada observação
-  
-  purrr::map_dfr(
+  gps <- purrr::map_dfr(
       unique(gtfs_shapes_geom$shape_id),
       function(shape) {
-        points <- gtfs_shapes_geom %>%
-            filter(shape_id == shape)
+          points <- gtfs_shapes_geom %>%
+              filter(shape_id == shape)
+          
+          # distancia a pontos de inicio e fim
+          
+          start_point <- points$start_pt %>%
+              sf::st_as_sfc()
+          
+          end_point <- points$end_pt %>%
+              sf::as_sfc()
+          
+          near_start <- sf::st_distance(gps, start_point) <= 500
+          
+          near_end <- sf::st_distance(gps, start_point) <= 500
+          
+          # distancia da shape como um todo
+          
+          near_shape <- nngeo::st_nn(gps, points, returnDist = TRUE)
+          
+          near_shape <- unlist(near_shape)
+          
+          near_middle <- near_shape <= 500
+          
+          # criando colunas
+          
+          gps <- gps %>%
+              mutate(shape_id = shape) %>%
+              mutate(
+                  status_viagem = case_when(
+                      near_start ~ "start",
+                      near_end ~ "end",
+                      near_middle ~ "middle",
+                      .default = "out"
+                  )
+              )
+          
+          gps
       }
-      
   )
   
-  nearest <- purrr::map(
-      unique(gtfs_shapes$shape_id),
-      function(shape) {
-          points <- gtfs_shapes
-          
-          sf::st_geometry(points)[points$shape_id != shape] <- NULL
-          
-          sf::st_nearest_feature(
-              gps,
-              points
-          )
-      }
-  ) %>%
-      unlist() %>%
-      matrix(., ncol = length(unique(gtfs_shapes$shape_id)))
+  # marco status de movimento startmiddle e middleend
   
-  # calcula as primeiras diferenças de cada sequência de pontos
-  nearest_diff <- diff(nearest)
-  
-  # escolhe a menor diferença não negativas (sem saltos):
-  nearest_diff[nearest_diff < 0] <- Inf
-  nearest_diff_min <- apply(nearest_diff, 1, min)
-  
-  cond <- nearest_diff == nearest_diff_min
-  
-  # se há empate, deixa vazio
-  
-  cond[rowSums(cond) > 1, ] <- c(NA, rep(FALSE, ncol(cond) - 1))
-  
-  nearest <- nearest[cond]
-  
-  # atribui distancias percorridas
-  gps$shape_dist_traveled <- c(gtfs_stops$shape_dist_traveled[nearest], NA)
-  
-  # não deixando transbordar entre veículos
   gps <- gps %>%
       mutate(
-          shape_dist_traveled = ifelse(
-              id_veiculo == dplyr::lead(id_veiculo),
-              shape_dist_traveled,
+          status_viagem = case_when(
+              dplyr::lag(status_viagem, order_by = "timestamp_gps") == "start" & status_viagem == "middle" ~ "startmiddle",
+              dplyr::lag(status_viagem, order_by = "timestamp_gps") == "middle" & status_viagem == "end" ~ "middleend",
+              .default = status_viagem
+          ),
+          .by = c("id_veiculo", "shape_id")
+      )
+  
+  # cada startmiddle marca o início de uma viagem, middleend marca o fim
+  
+  gps <- gps %>%
+      mutate( # criando id_viagem nas linhas de início
+          id_viagem = ifelse(
+              status_viagem == "startmiddle",
+              row_number(),
               NA
           )
       )
   
-  # removendo geometria
+  # preenchendo de cima para baixo
   
-  gtfs_stops <- gtfs_stops %>%
-      sf::st_drop_geometry()
-
-  # por essa distância, detectar a parada anterior e a próxima do ônibus
+  gps <- gps %>%
+      group_by(id_veiculo, shape_id) %>%
+      tidyr::fill(id_viagem, .direction = "down") %>%
+      ungroup()
   
-  gtfs_stops <- gtfs_stops %>%
-      filter(servico == serv) # pontos deste serviço
+  # dropando linhas sem viagem identificada
   
-  gtfs_stops <- gtfs_stops %>%
-      arrange(stop_sequence) # ordenando pela ordem dos pontos
-
-  gtfs_stops <- gtfs_stops %>%
-      mutate(
-          previous_stop = stop_sequence,
-          next_stop = previous_stop + 1,
-          distance_previous = shape_dist_traveled
-      ) %>%
-      mutate(
-          distance_next = dplyr::lead(shape_dist_traveled),
-          .by = shape_id
-      )
+  gps <- gps %>%
+      tidyr::drop_na(id_viagem)
   
-  by_cond <- join_by(
-      between(shape_dist_traveled, distance_previous, distance_next),
-      closest(shape_dist_traveled >= distance_previous)
+  # agora que sabemos as shape_ids, calculamos quando o ônibus chega a um ponto:
+  # quando passa a 500m dele
+  
+  gps <- purrr::map_dfr(
+      unique(gps$shape_id),
+      function(shape){
+          gps <- gps %>%
+              filter(shape_id == shape)
+          
+          stops <- gtfs_stops %>%
+              filter(shape_id == shape)
+          
+          nearest_stops <- nngeo::st_nn(gps, stops, returnDist = TRUE)
+          
+          gps$stop <- stops$stop_id[unlist(nearest_stops$nn)]
+          
+          gps <- gps %>%
+              mutate(
+                  stop = case_when(
+                      unlist(nearest_stops$dist) <= 500 ~ stop,
+                      .default = "none"
+                  )
+              )
+          
+          gps
+      }
   )
-  
-  gps <- gps %>%
-      left_join(
-          gtfs_stops %>% 
-              select(
-                  previous_stop, distance_previous, next_stop, distance_next
-                  ),
-          by = by_cond
-      )
-
-  # medir em quanto tempo o ônibus chegou na próxima parada
-  # (quando a próxima parada se tornou parada anterior)
-
-  # tentando criar uma id única de viagem:
-  # cada viagem só passa um vez no mesmo ponto
-
-  # conta o número de vezes que saiu do ponto inicial
-
-  gps <- gps %>%
-    mutate(previous_stop = tidyr::replace_na(previous_stop, 0)) %>%
-    mutate(
-      trip_id = cumsum(previous_stop == 1),
-      .by = c("id_veiculo")
-    )
 
   # criando variável que indica a hora em que o ônibus chegou a um ponto
 
   gps <- gps %>%
     mutate(
       arrival_time = ifelse(
-        previous_stop == dplyr::lead(next_stop, order_by = timestamp_gps),
+        stop != dplyr::lag(stop, order_by = timestamp_gps),
         timestamp_gps,
         NA
       ),
-      .by = c("id_veiculo", "trip_id")
+      .by = c("id_veiculo")
     ) %>%
       mutate(
           arrival_time = as.POSIXct(arrival_time)
@@ -165,11 +161,12 @@ base_validacao <- function(serv) {
   # estendendo o tempo de chegada no ponto seguinte para outras obs.
 
   gps <- gps %>%
-    group_by(id_veiculo, trip_id) %>%
+    group_by(id_veiculo) %>%
     tidyr::fill(
       arrival_time,
       .direction = "up"
-    )
+    ) %>%
+      ungroup()
 
   # tirando NAs remanescentes
   

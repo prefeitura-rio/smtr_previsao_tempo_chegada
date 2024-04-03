@@ -126,6 +126,14 @@ gtfs_shapes_geom <- gtfs_shapes_geom %>%
 gtfs_shapes_geom <- gtfs_shapes_geom %>%
     left_join(routes, by = "route_id")
 
+# geometria
+
+gtfs_shapes_geom <- gtfs_shapes_geom %>%
+    sf::st_as_sf(
+        wkt = "shape",
+        crs = "WGS84"
+    )
+
 # salvando
 
 readr::write_rds(gtfs_shapes, "data/gtfs_shapes_geom.rds")
