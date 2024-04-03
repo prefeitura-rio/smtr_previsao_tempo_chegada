@@ -39,37 +39,17 @@ gps <- readr::read_csv(file.path(source, "gps_sample.csv"))
 source("base_validacao.R")
 
 # para cada serviço da lista, monta a base
-dat <- purrr::map(
+dat <- purrr::map_dfr(
     lista_servicos,
     base_validacao
 )
 
-readr::write_rds(dat, "base_validacao.rds")
+readr::write_rds(dat, "data/base_validacao.rds")
 
 ###########################
 ## 2) Testes de sanidade ##
 ###########################
 
-gps <- dat[[1]]
-
-# as viagens têm que ser identificadas corretamente:
-# ônibus têm que ir subindo no tempo
-
-trips <- gps %>%
-    sf::st_drop_geometry() %>%
-    ungroup() %>%
-    select(previous_stop, id_veiculo, trip_id) %>%
-    distinct() %>%
-    mutate(
-        time = row_number(),
-        .by = c("id_veiculo", "trip_id")
-    )
-
-ggplot(trips, aes(x = time, y = previous_stop)) +
-    geom_point() +
-    geom_abline(intercept = 0, slope = 1) +
-    theme_minimal()
-
-# estamos com bastante erro de identificação
+dat <- readr::readr_rds("data/base_validacao.rds")
 
 

@@ -38,14 +38,14 @@ base_validacao <- function(serv) {
   # crio a variável status_viagem segundo esses critérios
 
   message("Identificando status da viagem\n")
-  
+
   n_shapes <- length(unique(gtfs_shapes_geom$shape_id))
-  
+
   gps <- purrr::imap_dfr(
     unique(gtfs_shapes_geom$shape_id),
     function(shape_code, iter) {
       message(paste(iter, n_shapes, sep = "/"))
-        
+
       points <- gtfs_shapes_geom %>%
         filter(shape_id == shape_code)
 
@@ -56,25 +56,25 @@ base_validacao <- function(serv) {
 
       end_point <- points$end_pt %>%
         sf::st_as_sfc(crs = "WGS84")
-      
+
       near_start <- sf::st_is_within_distance(
-          gps, start_point,
-          dist = units::as_units(500, "m"),
-          sparse = FALSE
+        gps, start_point,
+        dist = units::as_units(500, "m"),
+        sparse = FALSE
       )
-      
+
       near_end <- sf::st_is_within_distance(
-          gps, end_point,
-          dist = units::as_units(500, "m"),
-          sparse = FALSE
+        gps, end_point,
+        dist = units::as_units(500, "m"),
+        sparse = FALSE
       )
 
       # distancia da shape como um todo
-      
+
       near_middle <- sf::st_is_within_distance(
-          gps, points,
-          dist = units::as_units(500, "m"),
-          sparse = FALSE
+        gps, points,
+        dist = units::as_units(500, "m"),
+        sparse = FALSE
       )
 
       # criando colunas
@@ -101,14 +101,14 @@ base_validacao <- function(serv) {
       mudanca = paste0(dplyr::lag(status_viagem, order_by = timestamp_gps), status_viagem),
       .by = c("id_veiculo", "shape_id")
     )
-  
+
   # cada startmiddle marca o início de uma viagem, middleend marca o fim
 
   gps <- gps %>%
     mutate( # criando id_viagem nas linhas de início
       id_viagem = case_when(
-          mudanca == "startmiddle" ~ row_number(),
-          mudanca == "endend" ~ 0 
+        mudanca == "startmiddle" ~ row_number(),
+        mudanca == "endend" ~ 0
       )
     )
 
@@ -128,14 +128,14 @@ base_validacao <- function(serv) {
   # quando passa a 500m dele
 
   message("\nIdentificando paradas dos ônibus\n")
-  
+
   n_shapes <- length(unique(gps$shape_id))
-  
+
   gps <- purrr::imap_dfr(
     unique(gps$shape_id),
     function(shape, iter) {
-      message(paste(iter, n_shapes, sep = "/"))    
-        
+      message(paste(iter, n_shapes, sep = "/"))
+
       gps <- gps %>%
         filter(shape_id == shape)
 
@@ -145,7 +145,7 @@ base_validacao <- function(serv) {
       nearest_stops <- nngeo::st_nn(gps, stops, returnDist = TRUE)
 
       gps$stop <- stops$stop_id[unlist(nearest_stops$nn)]
-      
+
       gps$nearest_dist <- unlist(nearest_stops$dist)
 
       gps <- gps %>%
@@ -160,6 +160,11 @@ base_validacao <- function(serv) {
     }
   )
 
+  # removendo geometria para ficar mais leve
+  
+  gps <- gps %>%
+      sf::st_drop_geometry()
+  
   # criando variável que indica a hora em que o ônibus chegou a um ponto
 
   gps <- gps %>%
@@ -182,13 +187,28 @@ base_validacao <- function(serv) {
     tidyr::fill(
       arrival_time,
       .direction = "up"
-    ) %>%
-    ungroup()
+    )
 
   # tirando NAs remanescentes
 
   gps <- gps %>%
     tidyr::drop_na(timestamp_gps, arrival_time)
+
+  # quando está no ponto, vira arrival time seguinte
+
+  gps <- gps %>%
+    mutate(
+      arrival_time = case_when(
+        timestamp_gps == arrival_time ~ dplyr::lead(arrival_time, order_by = timestamp_gps),
+        .default = arrival_time
+      )
+    ) %>%
+    mutate(
+      arrival_time = as.POSIXct(arrival_time)
+    )
+
+  gps <- gps %>%
+    ungroup()
 
   # calculando intervalo de tempo
 
