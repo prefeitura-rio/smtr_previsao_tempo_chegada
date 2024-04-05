@@ -2,54 +2,39 @@ library(dplyr)
 library(ggplot2)
 library(sf)
 library(nngeo)
+library(basedosdados)
+
+# projeto google cloud
+set_billing_id("absolute-text-417919") 
 
 # caminho para os dados mais pesados
 source <- "F:/Dados/SMTR"
-
-# serviços de interesse, para ficar mais leve
-lista_servicos <- list(
-    "309"
-)
-
-# antes deste script, deve-se rodar:
-# data-raw/download_from_datalake.R -> baixa os dados
-# gtfs_servicos.R -> use as infos do gtfs
 
 ###########################
 ## 1) Bases de validação ##
 ###########################
 
-# para cada serviço, une à base de gps uma coluna com o tempo
-# que o ônibus efetivamente levou até o próximo ponto
+# código SQL que puxa os dados de gps,
+# identifica as viagens,
+# identifica os pontos,
+# e calcula tempos de chegada realizados
 
-# lendo os dados:
+query <- readr::read_file("identificacao_pontos.sql")
 
-# coordenadas de cada ponto, para cada servico e shape_id
-gtfs_stops <- readr::read_rds("data/gtfs_stops.rds")
+date <- "\"2024-03-26\""
 
-# pontinhos ao longo de cada shape, por servico e shape_id
-gtfs_shapes <- readr::read_rds("data/gtfs_shapes.rds")
+feed_date <- "\"2024-03-18\""
 
-# geometria + pontos de inicio e fim
-gtfs_shapes_geom <- readr::read_rds("data/gtfs_shapes_geom.rds")
+query <- query %>%
+    gsub("\\{date\\}", date, .) %>%
+    gsub("\\{feed_start\\}", feed_date, .)
 
-gps <- readr::read_csv(file.path(source, "gps_sample.csv"))
-
-# carrega função que monta a base de validação:
-source("base_validacao.R")
-
-# para cada serviço da lista, monta a base
-dat <- purrr::map_dfr(
-    lista_servicos,
-    base_validacao
-)
-
-readr::write_rds(dat, "data/base_validacao.rds")
+dat <- read_sql(query)
 
 ###########################
 ## 2) Testes de sanidade ##
 ###########################
 
-dat <- readr::readr_rds("data/base_validacao.rds")
+dat <- readr::read_rds("data/base_validacao.rds")
 
 
