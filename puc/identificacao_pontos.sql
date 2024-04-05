@@ -261,7 +261,7 @@ GPSStops10 as (
         
 GPSStops11 as (
     select *,
-        DATETIME_DIFF(pre_arrival_time3, timestamp_gps, MINUTE)/(60 * 1000000) as arrival_time
+        DATETIME_DIFF(pre_arrival_time3, timestamp_gps, MICROSECOND)/(60 * 1000000) as arrival_time
     from GPSStops10
 )
         
