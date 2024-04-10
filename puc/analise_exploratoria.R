@@ -19,17 +19,23 @@ source <- "F:/Dados/SMTR"
 # identifica os pontos,
 # e calcula tempos de chegada realizados
 
+dates <- read_sql(
+    "select distinct feed_start_date, feed_end_date from `rj-smtr.gtfs.stops`"
+)
+
 query <- readr::read_file("identificacao_pontos.sql")
 
-date <- "\"2024-03-26\""
+start_date <- "\"2024-03-26\""
 
-feed_date <- "\"2024-03-18\""
+end_date <- "\"2024-03-27\""
 
 query <- query %>%
-    gsub("\\{date\\}", date, .) %>%
-    gsub("\\{feed_start\\}", feed_date, .)
+    gsub("\\{start_date\\}", start_date, .) %>%
+    gsub("\\{end_date\\}", end_date, .)
 
 dat <- read_sql(query)
+
+download(query, file.path(source, "gps_sample.csv"))
 
 ###########################
 ## 2) Testes de sanidade ##

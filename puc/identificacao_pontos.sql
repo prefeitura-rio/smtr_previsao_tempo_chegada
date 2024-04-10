@@ -1,61 +1,101 @@
--- placeholders são {date} e {feed_start}
+-- placeholders são {start_date} e {end_date}
 
-with Stops as (
-    select stop_id, stop_lat, stop_lon
-    from `rj-smtr.gtfs.stops`
-    where feed_start_date = {feed_start}
+-- criando uma table auxiliar com datas
+
+with Dates as (
+    select data
+    from UNNEST(
+        GENERATE_DATE_ARRAY(DATE('2023-01-01'), CURRENT_DATE(), INTERVAL 1 DAY)
+    ) as data
+),
+
+-- lendo cada tabela necessária do GTFS e dando join com datas,
+-- para ter uma linha por data e não por intervalo
+
+Stops as (
+    select data, stop_id, stop_lat, stop_lon
+    from `rj-smtr.gtfs.stops` s
+        inner join Dates
+            on (Dates.data between feed_start_date and feed_end_date) or
+                (feed_end_date is null and Dates.data >= feed_start_date)
+    where data between {start_date} and {end_date}
 ),
 
 StopTimes as (
-    select stop_id, trip_id
+    select data, stop_id, trip_id
     from `rj-smtr.gtfs.stop_times`
-    where feed_start_date = {feed_start}
+        inner join Dates
+            on (Dates.data between feed_start_date and feed_end_date) or
+                (feed_end_date is null and Dates.data >= feed_start_date)
+    where data between {start_date} and {end_date}
 ),
 
 Trips as (
-    select trip_id, route_id, shape_id
+    select data, trip_id, route_id, shape_id
     from `rj-smtr.gtfs.trips`
-    where feed_start_date = {feed_start}
+        inner join Dates
+            on (Dates.data between feed_start_date and feed_end_date) or
+                (feed_end_date is null and Dates.data >= feed_start_date)
+    where data between {start_date} and {end_date}
+),
+
+ShapesGeomPre as (
+    select distinct data, shape_id, ST_ASBINARY(shape) as shape, ST_ASBINARY(start_pt) as start_pt, ST_ASBINARY(end_pt) as end_pt
+    from `rj-smtr.gtfs.shapes_geom`
+        left join Dates
+            on (Dates.data between feed_start_date and feed_end_date) or
+                (feed_end_date is null and Dates.data >= feed_start_date)
+    where data between {start_date} and {end_date}
 ),
 
 ShapesGeom as (
-    select shape_id, shape, start_pt, end_pt
-    from `rj-smtr.gtfs.shapes_geom`
-    where feed_start_date = {feed_start}
+    select data, shape_id, ST_GEOGFROM(shape) as shape, ST_GEOGFROM(start_pt) as start_pt, ST_GEOGFROM(end_pt) as end_pt
+    from ShapesGeomPre
 ),
 
 Routes as (
-    select route_id, route_short_name as servico
+    select data, route_id, route_short_name as servico
     from `rj-smtr.gtfs.routes`
-    where feed_start_date = {feed_start}
+        inner join Dates
+            on (Dates.data between feed_start_date and feed_end_date) or
+                (feed_end_date is null and Dates.data >= feed_start_date)
+    where data between {start_date} and {end_date}
 ),
         
 -- fazendo joins para linkar serviços e pontos
         
 TripStops as (
-    select distinct route_id, shape_id, stop_id
+    select distinct data, route_id, shape_id, stop_id
     from Trips
-        left join StopTimes using(trip_id)
+        left join StopTimes using(trip_id, data)
 ),
 
 GTFSStops as (
-    select stop_id, shape_id, servico, stop_lat, stop_lon from TripStops
-    left join Routes using(route_id)
-    left join Stops using(stop_id)
+    select distinct data, stop_id, shape_id, servico, stop_lat, stop_lon 
+    from TripStops
+        left join Routes using(route_id, data)
+        left join Stops using(stop_id, data)
 ),
         
 -- agora para linkar serviços e shapes
         
 TripShapes as (
-    select distinct route_id, shape_id
+    select distinct data, route_id, shape_id
     from Trips
-    left join ShapesGeom using(shape_id)
+        left join ShapesGeom using(shape_id, data)
+),
+
+GTFSServShapes as (
+    select distinct data, shape_id, servico
+    from TripShapes
+        left join Routes using(route_id, data)
+        
 ),
 
 GTFSShapes as (
-    select shape_id, servico, shape, start_pt, end_pt from TripShapes
-        left join Routes using(route_id)
-        left join ShapesGeom using(shape_id)
+    select data, shape_id, servico, shape, start_pt, end_pt
+    from GTFSServShapes
+        left join ShapesGeom using(shape_id, data)
 ),
         
 -- lendo a base de gps
@@ -65,7 +105,7 @@ GPS as (
         tipo_parada, flag_trajeto_correto, velocidade_instantanea, velocidade_estimada_10_min,
         distancia, flag_em_operacao, id_veiculo
     from `rj-smtr.br_rj_riodejaneiro_veiculos.gps_sppo`
-    where data = {date}
+    where data between {start_date} and {end_date}
         and flag_em_operacao = TRUE
     order by servico, id_veiculo, timestamp_gps
 ),
@@ -76,7 +116,7 @@ GPSShapes as (
     select *,
         ST_GEOGPOINT(longitude, latitude) posicao_veiculo_geo
     from GPS
-        left join GTFSShapes using(servico)
+        left join GTFSShapes using(servico, data)
 ),
         
 -- computando status da viagem
@@ -157,7 +197,7 @@ GPSStops as (
     select *,
         ST_GEOGPOINT(stop_lon, stop_lat) stop_geo
     from GPSTripsId4
-        left join GTFSStops using(servico, shape_id)
+        left join GTFSStops using(data, servico, shape_id)
 ),
         
 -- calculando distancias
@@ -187,7 +227,7 @@ GPSStops3 as (
 GPSStops4 as (
     select *,
         case
-           when distancia_ponto <= 100
+           when distancia_ponto <= 50
                then stop_id
            else 'none'
         end stop
