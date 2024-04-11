@@ -25,9 +25,9 @@ dates <- read_sql(
 
 query <- readr::read_file("identificacao_pontos.sql")
 
-start_date <- "\"2024-03-26\""
+start_date <- "\"2024-03-01\""
 
-end_date <- "\"2024-03-27\""
+end_date <- "\"2024-03-31\""
 
 query <- query %>%
     gsub("\\{start_date\\}", start_date, .) %>%
@@ -35,12 +35,18 @@ query <- query %>%
 
 dat <- read_sql(query)
 
-download(query, file.path(source, "gps_sample.csv"))
+download(query, path = file.path(source, "gps_sample.csv"))
 
 ###########################
 ## 2) Testes de sanidade ##
 ###########################
 
-dat <- readr::read_rds("data/base_validacao.rds")
+## Ver quantos pontos são pulados
+
+##################
+## 3) Regressão ##
+##################
+
+dat <- readr::read_csv(file.path(source, "gps_sample.csv"))
 
 

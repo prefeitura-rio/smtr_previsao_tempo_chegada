@@ -22,7 +22,7 @@ Stops as (
 ),
 
 StopTimes as (
-    select data, stop_id, trip_id
+    select data, stop_id, trip_id, stop_sequence
     from `rj-smtr.gtfs.stop_times`
         inner join Dates
             on (Dates.data between feed_start_date and feed_end_date) or
@@ -65,13 +65,13 @@ Routes as (
 -- fazendo joins para linkar serviços e pontos
         
 TripStops as (
-    select distinct data, route_id, shape_id, stop_id
+    select distinct data, route_id, shape_id, stop_id, stop_sequence
     from Trips
         left join StopTimes using(trip_id, data)
 ),
 
 GTFSStops as (
-    select distinct data, stop_id, shape_id, servico, stop_lat, stop_lon 
+    select distinct data, stop_id, shape_id, servico, stop_lat, stop_lon, stop_sequence
     from TripStops
         left join Routes using(route_id, data)
         left join Stops using(stop_id, data)
@@ -300,12 +300,31 @@ GPSStops10 as (
 ),
         
 GPSStops11 as (
-    select *,
+    select * except(stop_lon, stop_lat),
         DATETIME_DIFF(pre_arrival_time3, timestamp_gps, MICROSECOND)/(60 * 1000000) as arrival_time
     from GPSStops10
+),
+        
+-- calculando distância até o ponto seguinte        
+  
+GPSStops12 as (
+    select *,
+        ST_GEOGPOINT(stop_lon, stop_lat) next_stop_geo
+    from GPSStops11 g
+        left join GTFSStops s
+            on g.data = s.data and g.servico = s.servico and g.shape_id = s.shape_id and g.stop_sequence = s.stop_sequence - 1
+),
+        
+GPSStops13 as (
+    select *,
+        ST_DISTANCE(posicao_veiculo_geo, next_stop_geo) as distancia_proximo_ponto
+    from GPSStops12
 )
+
+-- chamando a base completa
         
 select timestamp_gps, data, hora, servico, latitude, longitude, flag_em_movimento,
     tipo_parada, flag_trajeto_correto, velocidade_instantanea, velocidade_estimada_10_min,
-    distancia, flag_em_operacao, id_veiculo, id_viagem, stop, arrival_time
+    distancia, flag_em_operacao, id_veiculo, id_viagem, stop, stop_sequence, arrival_time,
+    distancia_ponto as dist_nearest_stop--, distancia_proximo_ponto as dist_next_stop
 from GPSStops11
