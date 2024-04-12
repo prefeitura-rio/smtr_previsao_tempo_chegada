@@ -272,7 +272,7 @@ GPSStops7 as (
     select *,
         count(pre_arrival_time) over(
             partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
+            order by id_veiculo, shape_id, timestamp_gps desc)
         as _grp2
     from GPSStops6
 ),
@@ -315,55 +315,57 @@ GPSStops11 as (
 ),
         
 -- calculando distância viajada ao longo do shape
-GPSStops12 as (
-    select *,
-    ST_GEOGPOINT(shape_pt_lon, shape_pt_lat) shape_pt_geo
-    from GPSStops11
-        left join Shapes using(data, shape_id)
-),
+--GPSStops12 as (
+--    select *,
+--    ST_GEOGPOINT(shape_pt_lon, shape_pt_lat) shape_pt_geo
+--    from GPSStops11
+--        left join Shapes using(data, shape_id)
+--),
 
 -- calculando distancias
         
-GPSStops13 as (
-    select *,
-        ST_DISTANCE(posicao_veiculo_geo, shape_pt_geo) as distancia_shape
-    from GPSStops12
-),
-        
--- mantendo o ponto mais próximo
-        
-GPSStopsClosest2 as (
-    select id_veiculo, shape_id, timestamp_gps, MIN(distancia_shape) as distancia_shape
-    from GPSStops13
-    group by id_veiculo, shape_id, timestamp_gps
-),
-        
-GPSStops14 as (
-    select *
-    from GPSStops13
-        inner join GPSStopsClosest2 using(distancia_shape, id_veiculo, shape_id, timestamp_gps)
-)
+--GPSStops13 as (
+--    select *,
+--        ST_DISTANCE(posicao_veiculo_geo, shape_pt_geo) as distancia_shape
+--    from GPSStops12
+--),
+--        
+---- mantendo o ponto mais próximo
+--        
+--GPSStopsClosest2 as (
+--    select id_veiculo, shape_id, timestamp_gps, MIN(distancia_shape) as distancia_shape
+--    from GPSStops13
+--    group by id_veiculo, shape_id, timestamp_gps
+--),
+--        
+--GPSStops14 as (
+--    select *
+--    from GPSStops13
+--        inner join GPSStopsClosest2 using(distancia_shape, id_veiculo, shape_id, timestamp_gps)
+--)
         
 -- calculando distância até o ponto seguinte        
   
---GPSStops12 as (
---    select *,
---        ST_GEOGPOINT(stop_lon, stop_lat) next_stop_geo
---    from GPSStops11 g
---        left join GTFSStops s
---            on g.data = s.data and g.servico = s.servico and g.shape_id = s.shape_id and g.stop_sequence = s.stop_sequence - 1
---),
-        
---GPSStops13 as (
---    select *,
---        ST_DISTANCE(posicao_veiculo_geo, next_stop_geo) as distancia_proximo_ponto
---    from GPSStops12
---)
+GPSStops12 as (
+    select *,
+        ST_GEOGPOINT(stop_lon, stop_lat) next_stop_geo
+    from GPSStops11 g
+        left join GTFSStops s
+            on g.data = s.data and g.servico = s.servico and g.shape_id = s.shape_id and g.stop_sequence = s.stop_sequence - 1
+),
+      
+GPSStops13 as (
+    select *,
+        ST_DISTANCE(posicao_veiculo_geo, next_stop_geo) as distancia_proximo_ponto
+    from GPSStops12
+)
 
 -- chamando a base completa
         
-select timestamp_gps, data, hora, servico, latitude, longitude, flag_em_movimento,
-    tipo_parada, flag_trajeto_correto, velocidade_instantanea, velocidade_estimada_10_min,
-    distancia, flag_em_operacao, id_veiculo, id_viagem, stop, stop_sequence, arrival_time,
-    distancia_ponto as dist_nearest_stop, dist_traveled_stop, dist_traveled_shape--, distancia_proximo_ponto as dist_next_stop
-from GPSStops14
+--select timestamp_gps, data, hora, servico, latitude, longitude, flag_em_movimento,
+--    tipo_parada, flag_trajeto_correto, velocidade_instantanea, velocidade_estimada_10_min,
+--    distancia, flag_em_operacao, id_veiculo, id_viagem, stop, stop_sequence, arrival_time,
+--    distancia_ponto as dist_nearest_stop, dist_traveled_stop, dist_traveled_shape--, distancia_proximo_ponto as dist_next_stop
+--from GPSStops13
+
+select * from GPSStops13
