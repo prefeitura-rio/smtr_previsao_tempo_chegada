@@ -1,0 +1,33 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(RSQLite)
+library(basedosdados)
+
+# projeto google cloud
+set_billing_id("absolute-text-417919") 
+
+con <- dbConnect(RSQLite::SQLite(), ":memory:")
+```
+
+Primeiro, lendo uma base com todas as datas para dar join com GTFS
+
+```{sql connection = con}
+create table Dates as
+    with cte as (
+        select date('2023-01-01') as dte union all
+        select date(dte, '+1 day')
+        from cte
+        where dte <= '2024-04-18'
+    )
+select * from cte
+```
+
+```{sql connection= con}
+select * from Dates
+```
+
+
