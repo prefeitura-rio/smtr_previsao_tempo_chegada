@@ -13,7 +13,7 @@ with Dates as (
 -- para ter uma linha por data e não por intervalo
 
 Stops as (
-    select distinct data, stop_id, stop_lat, stop_lon
+    select data, stop_id, stop_lat, stop_lon
     from `rj-smtr.gtfs.stops` s
         inner join Dates
             on (Dates.data between feed_start_date and feed_end_date) or
@@ -22,7 +22,7 @@ Stops as (
 ),
 
 StopTimes as (
-    select distinct data, stop_id, trip_id, stop_sequence, shape_dist_traveled as dist_traveled_stop
+    select data, stop_id, trip_id, stop_sequence, shape_dist_traveled as dist_traveled_stop
     from `rj-smtr.gtfs.stop_times`
         inner join Dates
             on (Dates.data between feed_start_date and feed_end_date) or
@@ -31,7 +31,7 @@ StopTimes as (
 ),
 
 Trips as (
-    select distinct data, trip_id, route_id, shape_id
+    select data, trip_id, route_id, shape_id
     from `rj-smtr.gtfs.trips`
         inner join Dates
             on (Dates.data between feed_start_date and feed_end_date) or
@@ -40,7 +40,7 @@ Trips as (
 ),
 
 Shapes as (
-    select distinct data, shape_id, shape_pt_lat, shape_pt_lon, shape_dist_traveled as dist_traveled_shape
+    select data, shape_id, shape_pt_lat, shape_pt_lon, shape_dist_traveled as dist_traveled_shape
     from `rj-smtr.gtfs.shapes` s
         inner join Dates
             on (Dates.data between feed_start_date and feed_end_date) or
@@ -48,22 +48,17 @@ Shapes as (
     where data between {start_date} and {end_date}
 ),
 
-ShapesGeomPre as (
-    select distinct data, shape_id, ST_ASBINARY(shape) as shape, ST_ASBINARY(start_pt) as start_pt, ST_ASBINARY(end_pt) as end_pt
+ShapesGeom as (
+    select data, shape_id, shape, start_pt, end_pt
     from `rj-smtr.gtfs.shapes_geom`
-        left join Dates
+        inner join Dates
             on (Dates.data between feed_start_date and feed_end_date) or
                 (feed_end_date is null and Dates.data >= feed_start_date)
     where data between {start_date} and {end_date}
 ),
 
-ShapesGeom as (
-    select data, shape_id, ST_GEOGFROM(shape) as shape, ST_GEOGFROM(start_pt) as start_pt, ST_GEOGFROM(end_pt) as end_pt
-    from ShapesGeomPre
-),
-
 Routes as (
-    select distinct data, route_id, route_short_name as servico
+    select data, route_id, route_short_name as servico
     from `rj-smtr.gtfs.routes`
         inner join Dates
             on (Dates.data between feed_start_date and feed_end_date) or
@@ -279,9 +274,9 @@ GPSStops7 as (
         
 GPSStops8 as (
     select *,
-        LAST_VALUE(pre_arrival_time) over(
+        FIRST_VALUE(pre_arrival_time) over(
             partition by id_veiculo, shape_id, _grp2
-            order by id_veiculo, shape_id, timestamp_gps)
+            order by id_veiculo, shape_id, timestamp_gps desc)
         as pre_arrival_time2
     from GPSStops7
         ),
@@ -315,57 +310,55 @@ GPSStops11 as (
 ),
         
 -- calculando distância viajada ao longo do shape
---GPSStops12 as (
---    select *,
---    ST_GEOGPOINT(shape_pt_lon, shape_pt_lat) shape_pt_geo
---    from GPSStops11
---        left join Shapes using(data, shape_id)
---),
+GPSStops12 as (
+    select *,
+    ST_GEOGPOINT(shape_pt_lon, shape_pt_lat) shape_pt_geo
+    from GPSStops11
+        left join Shapes using(data, shape_id)
+),
 
 -- calculando distancias
         
---GPSStops13 as (
---    select *,
---        ST_DISTANCE(posicao_veiculo_geo, shape_pt_geo) as distancia_shape
---    from GPSStops12
---),
---        
----- mantendo o ponto mais próximo
---        
---GPSStopsClosest2 as (
---    select id_veiculo, shape_id, timestamp_gps, MIN(distancia_shape) as distancia_shape
---    from GPSStops13
---    group by id_veiculo, shape_id, timestamp_gps
---),
---        
---GPSStops14 as (
---    select *
---    from GPSStops13
---        inner join GPSStopsClosest2 using(distancia_shape, id_veiculo, shape_id, timestamp_gps)
---)
-        
--- calculando distância até o ponto seguinte        
-  
-GPSStops12 as (
+GPSStops13 as (
     select *,
-        ST_GEOGPOINT(stop_lon, stop_lat) next_stop_geo
-    from GPSStops11 g
+        ST_DISTANCE(posicao_veiculo_geo, shape_pt_geo) as distancia_shape
+    from GPSStops12
+),
+        
+---- mantendo o ponto mais próximo
+        
+GPSStopsClosest2 as (
+    select id_veiculo, shape_id, timestamp_gps, MIN(distancia_shape) as distancia_shape
+    from GPSStops13
+    group by id_veiculo, shape_id, timestamp_gps
+),
+        
+GPSStops14 as (
+    select *
+    from GPSStops13
+        inner join GPSStopsClosest2 using(distancia_shape, id_veiculo, shape_id, timestamp_gps)
+),
+        
+-- calculando distância até o ponto seguinte
+  
+GPSStops15 as (
+    select timestamp_gps, g.data as data, hora, g.servico as servico, latitude,
+        longitude, flag_em_movimento, g.stop_sequence as stop_sequence,
+        tipo_parada, flag_trajeto_correto, velocidade_instantanea, velocidade_estimada_10_min,
+        id_veiculo, id_viagem, stop, arrival_time, dist_traveled_shape,
+        s.dist_traveled_stop as dist_traveled_next_stop
+    from GPSStops14 g
         left join GTFSStops s
             on g.data = s.data and g.servico = s.servico and g.shape_id = s.shape_id and g.stop_sequence = s.stop_sequence - 1
 ),
       
-GPSStops13 as (
+GPSStops16 as (
     select *,
-        ST_DISTANCE(posicao_veiculo_geo, next_stop_geo) as distancia_proximo_ponto
-    from GPSStops12
+        dist_traveled_next_stop - dist_traveled_shape as dist_next_stop
+    from GPSStops15
 )
 
 -- chamando a base completa
         
---select timestamp_gps, data, hora, servico, latitude, longitude, flag_em_movimento,
---    tipo_parada, flag_trajeto_correto, velocidade_instantanea, velocidade_estimada_10_min,
---    distancia, flag_em_operacao, id_veiculo, id_viagem, stop, stop_sequence, arrival_time,
---    distancia_ponto as dist_nearest_stop, dist_traveled_stop, dist_traveled_shape--, distancia_proximo_ponto as dist_next_stop
---from GPSStops13
+select * from GPSStops16
 
-select * from GPSStops13

@@ -19,10 +19,6 @@ source <- "F:/Dados/SMTR"
 # identifica os pontos,
 # e calcula tempos de chegada realizados
 
-dates <- read_sql(
-    "select distinct feed_start_date, feed_end_date from `rj-smtr.gtfs.stops`"
-)
-
 query <- readr::read_file("identificacao_pontos.sql")
 
 start_date <- "\"2024-03-01\""
