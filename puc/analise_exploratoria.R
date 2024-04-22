@@ -19,11 +19,11 @@ source <- "F:/Dados/SMTR"
 # identifica os pontos,
 # e calcula tempos de chegada realizados
 
-query <- readr::read_file("identificacao_pontos.sql")
+query <- readr::read_file("identificacao_shape.sql")
 
 start_date <- "\"2024-03-01\""
 
-end_date <- "\"2024-03-31\""
+end_date <- "\"2024-03-01\""
 
 query <- query %>%
     gsub("\\{start_date\\}", start_date, .) %>%
@@ -39,10 +39,20 @@ download(query, path = file.path(source, "gps_sample.csv"))
 
 ## Ver quantos pontos são pulados
 
-##################
-## 3) Regressão ##
-##################
+##########################
+## 3) Modelo Newtoniano ##
+##########################
 
 dat <- readr::read_csv(file.path(source, "gps_sample.csv"))
 
+dat %>%
+    mutate(
+        est_arrival_time = dist_next_stop/velocidade_estimada_10_min,
+        error = (arrival_time - est_arrival_time)^2
+    ) %>%
+    summarise(MSE = mean(error, na.rm = TRUE))
 
+reg <- lm(
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min),
+    data = dat %>% filter(dist_next_stop > 0, arrival_time > 0)
+)
