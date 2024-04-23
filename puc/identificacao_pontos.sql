@@ -111,7 +111,6 @@ GPS as (
     from `rj-smtr.br_rj_riodejaneiro_veiculos.gps_sppo`
     where data between {start_date} and {end_date}
         and flag_em_operacao = TRUE
-    order by servico, id_veiculo, timestamp_gps
 ),
         
 -- join do gps com shapes para identificar viagens
@@ -127,6 +126,7 @@ GPSShapes as (
         
 GPSStatus as (
     select *,
+        ST_DISTANCE(posicao_veiculo_geo, shape) as sq_distance_shape, 
         case
             when ST_DWITHIN(posicao_veiculo_geo, start_pt, 500)
                 then 'start'
@@ -141,8 +141,8 @@ GPSStatus as (
         
 -- marcando início e fim das viagens
         
-GPSTrips as (
-    select *,
+GPSTripStatus as (
+    select * except(status_viagem),
         string_agg(status_viagem, "") over (
            partition by id_veiculo, shape_id
            order by id_veiculo, shape_id, timestamp_gps
@@ -157,42 +157,35 @@ GPSTrips as (
 -- criando id viagem quando viagem começa
         
 GPSTripsId as (
-    select *,
+    select * except(starts, ended),
         case
            when starts = true
-               then ROW_NUMBER() over(order by (select 1))
+               then CONCAT(id_veiculo, shape_id, timestamp_gps)
            when ended = true
-               then 0
+               then "ended"
            else null
-        end pre_id_viagem
-    from GPSTrips
+        end id_viagem
+    from GPSTripStatus
 ),
         
 -- estendendo id_viagem de cima para baixo
         
-GPSTripsId2 as (
-    select *,
-        count(pre_id_viagem) over(
+GPSTripsIdFill as (
+    select * except(id_viagem),
+        LAST_VALUE(id_viagem IGNORE NULLS) over(
             partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
-        as _grp
-    from GPSTripsId
-),
-        
-GPSTripsId3 as (
-    select *,
-        FIRST_VALUE(pre_id_viagem) over(
-            partition by id_veiculo, shape_id, _grp
-            order by id_veiculo, shape_id, timestamp_gps)
+            order by id_veiculo, shape_id, timestamp_gps
+            rows between unbounded preceding and current row)
         as id_viagem
-    from GPSTripsId2
-),
+    from GPSTripsId
+),        
         
 -- apenas mantendo viagens que fazem sentido
         
-GPSTripsId4 as (
-    select * from GPSTripsId3
-    where id_viagem is not null and id_viagem != 0
+GPSTrips as (
+    select * 
+    from GPSTripsIdFill
+    where id_viagem is not null and id_viagem != "ended"
 ),
         
 -- identificando pontos de onibus
@@ -200,13 +193,13 @@ GPSTripsId4 as (
 GPSStops as (
     select *,
         ST_GEOGPOINT(stop_lon, stop_lat) stop_geo
-    from GPSTripsId4
+    from GPSTrips
         left join GTFSStops using(data, servico, shape_id)
 ),
         
 -- calculando distancias
         
-GPSStops2 as (
+GPSStopsDist as (
     select *,
         ST_DISTANCE(posicao_veiculo_geo, stop_geo) as distancia_ponto
     from GPSStops
@@ -214,85 +207,102 @@ GPSStops2 as (
         
 -- mantendo o ponto mais próximo
         
-GPSStopsClosest as (
+AuxStopsClosest as (
     select id_veiculo, shape_id, timestamp_gps, MIN(distancia_ponto) as distancia_ponto
-    from GPSStops2
+    from GPSStopsDist
     group by id_veiculo, shape_id, timestamp_gps
 ),
         
-GPSStops3 as (
+GPSStopsClosest as (
     select *
-    from GPSStops2
-        inner join GPSStopsClosest using(distancia_ponto, id_veiculo, shape_id, timestamp_gps)
+    from GPSStopsDist
+        inner join AuxStopsClosest using(distancia_ponto, id_veiculo, shape_id, timestamp_gps)
 ),
         
 -- calculando qual o ponto, se há algum
         
-GPSStops4 as (
+GPSStopsId as (
     select *,
         case
            when distancia_ponto <= 50
                then stop_id
            else 'none'
         end stop
-    from GPSStops3
+    from GPSStopsClosest
 ),
         
 -- ponto anterior
         
-GPSStops5 as (
+GPSStopsLag as (
     select *,
         LAG(stop) over(
             partition by id_veiculo, shape_id
             order by id_veiculo, shape_id, timestamp_gps)
         as previous_stop
-    from GPSStops4
+    from GPSStopsId
 ),
         
 -- calculando tempo até o ponto seguinte
         
-GPSStops6 as (
+GPSStopsTime as (
     select *,
         case
            when stop != previous_stop and stop != 'none'
                then timestamp_gps
            else null
         end pre_arrival_time
-    from GPSStops5
+    from GPSStopsLag
 ),
         
 -- estendendo de baixo para cima
         
-GPSStops7 as (
+GPSStopsFill as (
     select *,
-        count(pre_arrival_time) over(
+        FIRST_VALUE(pre_arrival_time IGNORE NULLS) over(
             partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps desc)
-        as _grp2
-    from GPSStops6
-),
-        
-GPSStops8 as (
-    select *,
-        FIRST_VALUE(pre_arrival_time) over(
-            partition by id_veiculo, shape_id, _grp2
-            order by id_veiculo, shape_id, timestamp_gps desc)
+            order by id_veiculo, shape_id, timestamp_gps
+            rows between current row and unbounded following)
         as pre_arrival_time2
-    from GPSStops7
-        ),
+    from GPSStopsTime
+),
         
 -- quando está no ponto, tempo de chegada é o seguinte
         
-GPSStops9 as (
+GPSStopsLead as (
     select *,
         LEAD(pre_arrival_time2) over(
             partition by id_veiculo, shape_id
             order by id_veiculo, shape_id, timestamp_gps)
         as lead_arrival_time
-    from GPSStops8
+    from GPSStopsFill
     where pre_arrival_time2 is not null
 ),
-        
+
+-- mas se o ônibus fica muito tempo parado, o lead ainda vai ser o mesmo
+-- crio uma variável que só não é null quando o ponto muda
+
+GPSStopsChange as (
+    select * except(lead_arrival_time),
+        case
+            when pre_arrival_time2 != lead_arrival_time
+                then lead_arrival_time
+            else null
+        end lead_arrival_time
+    from GPSStopsLead
+),
+
+-- estendo essa variável de baixo pra cima:
+
+GPSArrivalFill as (
+    select * except(lead_arrival_time),
+        FIRST_VALUE(lead_arrival_time IGNORE NULLS) over(
+            partition by id_veiculo, shape_id
+            order by id_veiculo, shape_id, timestamp_gps
+            rows between current row and unbounded following)
+        as lead_arrival_time
+    from GPSStopsChange
+),
+
 GPSStops10 as (
     select *,
         case
@@ -300,7 +310,7 @@ GPSStops10 as (
                then lead_arrival_time
            else pre_arrival_time2
         end pre_arrival_time3
-    from GPSStops9
+    from GPSArrivalFill
 ),
         
 GPSStops11 as (
@@ -356,9 +366,40 @@ GPSStops16 as (
     select *,
         dist_traveled_next_stop - dist_traveled_shape as dist_next_stop
     from GPSStops15
+),
+
+-- roubando: tiro as obs. com mais de um shape_id na mesma viagem
+
+Desempate as (
+    select id_veiculo, timestamp_gps, COUNT(timestamp_gps) as num_obs
+    from GPSStops16
+    group by id_veiculo, timestamp_gps
+),
+
+Distintas as (
+    select id_veiculo, timestamp_gps
+    from Desempate
+    where num_obs = 1
+),
+
+GPSTripsRou as (
+    select * from GPSStops16
+    inner join Distintas using(id_veiculo, timestamp_gps)
+),
+
+-- escolhendo o ponto seguinte mais próximo
+
+MinDesempate as (
+    select id_veiculo, timestamp_gps, MIN(dist_next_stop) as dist_next_stop
+    from GPSStops16
+    group by id_veiculo, timestamp_gps
+),
+
+MinGPSTripsRou as (
+    select * from GPSStops16
+    inner join MinDesempate using(id_veiculo, timestamp_gps, dist_next_stop)
 )
 
 -- chamando a base completa
         
-select * from GPSStops16
-
+select * from MinGPSTripsRou where dist_next_stop > 0

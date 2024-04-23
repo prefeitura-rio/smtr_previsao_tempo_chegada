@@ -19,7 +19,7 @@ source <- "F:/Dados/SMTR"
 # identifica os pontos,
 # e calcula tempos de chegada realizados
 
-query <- readr::read_file("identificacao_shape.sql")
+query <- readr::read_file("identificacao_pontos.sql")
 
 start_date <- "\"2024-03-01\""
 
@@ -47,10 +47,22 @@ dat <- readr::read_csv(file.path(source, "gps_sample.csv"))
 
 dat %>%
     mutate(
-        est_arrival_time = dist_next_stop/velocidade_estimada_10_min,
-        error = (arrival_time - est_arrival_time)^2
+        est_arrival_time = 1/1000 * dist_next_stop/velocidade_estimada_10_min,
+        error = (arrival_time - est_arrival_time)
     ) %>%
-    summarise(MSE = mean(error, na.rm = TRUE))
+    summarise(
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+dat %>%
+    mutate(
+        est_arrival_time = 1/1000 * dist_next_stop/velocidade_estimada_10_min,
+        error = (arrival_time - est_arrival_time)
+    ) %>%
+    {.$error} %>%
+    hist()
 
 reg <- lm(
     log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min),

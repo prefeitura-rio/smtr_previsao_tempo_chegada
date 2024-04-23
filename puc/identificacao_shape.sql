@@ -133,7 +133,7 @@ GPSShapesClosest as (
 -- mais que isso seria fora da rota
 
 GPSShapePoints as (
-    select *
+    select * except(distancia_shape_pt)
     from GPSShapesDist
         inner join GPSShapesClosest using(distancia_shape_pt, id_veiculo, shape_id, timestamp_gps)
     where distancia_shape_pt < 500
@@ -144,22 +144,22 @@ GPSShapePoints as (
 
 GPSShapesLag as (
     select *,
-        LAG(distancia_shape_pt) over(
+        LAG(dist_traveled_shape) over(
             partition by id_veiculo, shape_id
             order by id_veiculo, shape_id, timestamp_gps)
-        as lag_distancia_shape_pt
+        as lag_dist_traveled_shape
     from GPSShapePoints
 ),
 
 -- crio uma variável que só não é null quando a distância muda
 
 GPSShapesChange as (
-    select * except(lag_distancia_shape_pt),
+    select * except(lag_dist_traveled_shape),
         case
-            when distancia_shape_pt > lag_distancia_shape_pt
-                then lag_distancia_shape_pt
+            when dist_traveled_shape != lag_dist_traveled_shape
+                then lag_dist_traveled_shape
             else null
-        end lag_distancia_shape_pt
+        end lag_dist_traveled_shape
     from GPSShapesLag
 ),
 
@@ -170,7 +170,7 @@ GPSShapesChange as (
 
 AuxShapesId as (
     select *,
-        count(lag_distancia_shape_pt) over(
+        count(lag_dist_traveled_shape) over(
             partition by id_veiculo, shape_id
             order by id_veiculo, shape_id, timestamp_gps)
         as _grp
@@ -180,22 +180,21 @@ AuxShapesId as (
 -- tomo o primeiro valor de lag_distancia_shape_pt de cada grupo
 
 GPSShapesFill as (
-    select * except(_grp, lag_distancia_shape_pt),
-        FIRST_VALUE(lag_distancia_shape_pt) over(
+    select * except(_grp, lag_dist_traveled_shape),
+        FIRST_VALUE(lag_dist_traveled_shape) over(
             partition by id_veiculo, shape_id, _grp
             order by id_veiculo, shape_id, timestamp_gps)
-        as lag_distancia_shape_pt
+        as lag_dist_traveled_shape
     from AuxShapesId
 ),
 
 -- na shape_id correta, a distância só pode ter aumentado
--- e o ônibus não pode
 
 GPSShapesIncreasing as (
-    select * except(distancia_shape_pt, lag_distancia_shape_pt),
-        distancia_shape_pt - lag_distancia_shape_pt as delta
+    select * except(lag_dist_traveled_shape),
+        dist_traveled_shape - lag_dist_traveled_shape as delta
     from GPSShapesFill
-    where distancia_shape_pt > lag_distancia_shape_pt
+    where dist_traveled_shape > lag_dist_traveled_shape
 ),
 
 -- em caso de empate (mais de uma shape_id ainda faz sentido),
@@ -268,8 +267,8 @@ GPSStops4 as (
 GPSStops5 as (
     select *,
         LAG(stop) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
+            partition by id_veiculo
+            order by id_veiculo, timestamp_gps)
         as previous_stop
     from GPSStops4
 ),
@@ -291,8 +290,8 @@ GPSStops6 as (
 GPSStops7 as (
     select *,
         count(pre_arrival_time) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps desc)
+            partition by id_veiculo
+            order by id_veiculo, timestamp_gps desc)
         as _grp2
     from GPSStops6
 ),
@@ -300,8 +299,8 @@ GPSStops7 as (
 GPSStops8 as (
     select *,
         FIRST_VALUE(pre_arrival_time) over(
-            partition by id_veiculo, shape_id, _grp2
-            order by id_veiculo, shape_id, timestamp_gps desc)
+            partition by id_veiculo, _grp2
+            order by id_veiculo, timestamp_gps desc)
         as pre_arrival_time2
     from GPSStops7
         ),
@@ -311,8 +310,8 @@ GPSStops8 as (
 GPSStops9 as (
     select *,
         LEAD(pre_arrival_time2) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
+            partition by id_veiculo
+            order by id_veiculo, timestamp_gps)
         as lead_arrival_time
     from GPSStops8
     where pre_arrival_time2 is not null
