@@ -1,0 +1,340 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r, message = FALSE}
+library(basedosdados)
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(fixest)
+library(data.table)
+
+# projeto google cloud
+set_billing_id("absolute-text-417919") 
+
+# caminho para os dados mais pesados
+source <- "F:/Dados/SMTR"
+```
+
+Lendo os dados: base de treino, de 01/03/2024 a 07/03/2024, e base de teste, de 08/03/2024 a 14/04/2024. Tiro alguns outliers estranhos.
+
+```{r}
+training_data <- fread(file.path(source, "gps_week_1.csv"))
+
+test_data <- fread(file.path(source, "gps_week_2_1.csv"))
+
+# removendo outliers
+
+training_data <- training_data[arrival_time < 60,]
+
+test_data <- test_data[arrival_time < 60,]
+```
+
+## Modelo Newtoniano
+
+```{r}
+models <- data.frame(
+    "Modelo" = character(), "RMSE" = double(), "MAE" = double(), "MAD" = double()
+)
+
+newton <- test_data %>%
+    mutate(
+        est_arrival_time = 1/1000 * dist_next_stop/velocidade_estimada_10_min,
+        error = (arrival_time - est_arrival_time)
+    )
+
+newton_summ <- newton %>%
+    summarise(
+        Modelo = "Newtoniano simples",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+models <- models %>%
+    bind_rows(newton_summ)
+
+kable(newton_summ, digits = 2)
+```
+
+Plot dos resíduos:
+
+```{r, warning = FALSE}
+ggplot(newton, aes(x = error, y = after_stat(density))) +
+    geom_histogram() +
+    theme_minimal()
+
+rm(newton)
+```
+
+## Modelo Newtoniano limitado
+
+```{r, warning = FALSE}
+newton_lim <- newton %>%
+    mutate( # teto de 1h
+        est_arrival_time = 1/1000 * dist_next_stop/velocidade_estimada_10_min,
+        est_arrival_time = ifelse(est_arrival_time < 60, est_arrival_time, 60),
+        error = (arrival_time - est_arrival_time)
+    )
+
+newton_lim_summ <- newton_lim %>%
+    summarise(
+        Modelo = "Newtoniano com teto",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+models <- models %>%
+    bind_rows(newton_lim_summ)
+
+kable(newton_lim_summ)
+```
+
+Plot dos resíduos:
+
+```{r, warning = FALSE}
+ggplot(newton_lim, aes(x = error, y = after_stat(density))) +
+    geom_histogram() +
+    theme_minimal()
+
+rm(newton_lim)
+```
+
+## Regressão linear
+
+```{r}
+newton_flex <- lm(
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min),
+    data = training_data
+)
+
+newton_flex <- test_data %>%
+    bind_cols("est_arrival_time" = predict(newton_flex, test_data)) %>%
+    mutate(error = (arrival_time - est_arrival_time))
+
+newton_flex_summ <- newton_flex %>%
+    summarise(
+        Modelo = "Regressão linear",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+models <- models %>%
+    bind_rows(newton_flex_summ)
+
+kable(newton_flex_summ)
+```
+
+Plot dos resíduos:
+
+```{r, warning = FALSE}
+ggplot(newton_flex, aes(x = error, y = after_stat(density))) +
+    geom_histogram() +
+    theme_minimal()
+
+rm(newton_flex)
+```
+
+## Logit
+
+```{r, warning = FALSE}
+# reajustando arrival_time entre 0 e 1
+
+training_data <- training_data %>%
+    mutate(arrival_time_norm = arrival_time/60)
+
+test_data <- test_data %>%
+    mutate(arrival_time_norm = arrival_time/60)
+
+logit <- glm(
+    arrival_time_norm ~ dist_next_stop + velocidade_estimada_10_min + velocidade_instantanea,
+    data = training_data,
+    family = binomial(link = "logit")
+)
+
+logit <- test_data %>%
+    bind_cols("est_arrival_time" = 60 * predict(logit, test_data)) %>%
+    mutate(error = arrival_time - est_arrival_time)
+
+logit_summ <- logit %>%
+    summarise(
+        Modelo = "Logit",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+models <- models %>%
+    bind_rows(logit_summ)
+
+kable(logit_summ)
+```
+
+Plot dos resíduos:
+
+```{r, warning = FALSE}
+ggplot(logit, aes(x = error, y = after_stat(density))) +
+    geom_histogram() +
+    theme_minimal()
+
+rm(logit)
+```
+
+## Efeitos Fixos
+
+```{r}
+training_data <- training_data %>%
+    mutate(hora = stringr::str_split(hora, ":", simplify = TRUE) %>% {.[,1]})
+
+test_data <- test_data %>%
+    mutate(hora = stringr::str_split(hora, ":", simplify = TRUE) %>% {.[,1]})
+
+# Estimando
+
+fe_serv <- feols(
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min),
+    data = training_data,
+    fixef = "servico"
+)
+
+fe_hora <- feols(
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min),
+    data = training_data,
+    fixef = "hora"
+)
+
+fe_serv_hora_tw <- feols(
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min),
+    data = training_data,
+    fixef = c("servico", "hora")
+)
+
+fe_serv_hora_int <- feols(
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min) | servico^hora,
+    data = training_data,
+    combine.quick = FALSE
+)
+
+# Calculando performance
+
+fe <- test_data %>%
+    bind_cols("est_arrival_time" = predict(fe_serv, test_data)) %>%
+    mutate(error = (arrival_time - est_arrival_time))
+
+fe_serv_summ <- fe %>%
+    summarise(
+        Modelo = "EF de serviço",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+fe <- test_data %>%
+    bind_cols("est_arrival_time" = predict(fe_hora, test_data)) %>%
+    mutate(error = (arrival_time - est_arrival_time))
+
+fe_hora_summ <- fe %>%
+    summarise(
+        Modelo = "EF de Hora",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+fe <- test_data %>%
+    bind_cols("est_arrival_time" = predict(fe_serv_hora_tw, test_data)) %>%
+    mutate(error = (arrival_time - est_arrival_time))
+
+fe_serv_hora_tw_summ <- fe %>%
+    summarise(
+        Modelo = "EF Serviço e Hora",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+fe <- test_data %>%
+    bind_cols("est_arrival_time" = predict(fe_serv_hora_int, test_data)) %>%
+    mutate(error = (arrival_time - est_arrival_time))
+
+fe_serv_hora_int_summ <- fe %>%
+    summarise(
+        Modelo = "EF Serviço e Hora com int.",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+fe_summ <- bind_rows(
+    fe_serv_summ, fe_hora_summ, fe_serv_hora_tw_summ, fe_serv_hora_int_summ
+)
+
+models <- models %>%
+    bind_rows(fe_summ)
+
+kable(fe_summ)
+```
+
+## Regressão com coordenadas
+
+```{r}
+reg <- lm(
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min) + longitude + latitude,
+    data = training_data
+)
+
+reg <- test_data %>%
+    bind_cols("est_arrival_time" = predict(reg, test_data)) %>%
+    mutate(error = (arrival_time - est_arrival_time))
+
+reg_summ <- reg %>%
+    summarise(
+        Modelo = "Linear com coordenadas",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+models <- models %>%
+    bind_rows(reg_summ)
+
+kable(reg_summ)
+```
+
+## Versão mais flexível
+
+```{r}
+reg_poli <- lm(
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min) + 
+        longitude + latitude + longitude:latitude + longitude^2 + latitude^2,
+    data = training_data
+)
+
+reg_poli <- test_data %>%
+    bind_cols("est_arrival_time" = predict(reg_poli, test_data)) %>%
+    mutate(error = (arrival_time - est_arrival_time))
+
+reg_poli_summ <- reg_poli %>%
+    summarise(
+        Modelo = "Polinômio de coordenadas",
+        RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+        MAE = mean(abs(error), na.rm = TRUE),
+        MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
+    )
+
+models <- models %>%
+    bind_rows(reg_poli_summ)
+
+kable(reg_poli_summ)
+```
+
+## Resultados gerais
+
+```{r}
+kable(models, digits = 2)
+```
+
