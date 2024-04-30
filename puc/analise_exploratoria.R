@@ -21,9 +21,9 @@ source <- "F:/Dados/SMTR"
 
 query <- readr::read_file("identificacao_pontos.sql")
 
-start_date <- "\"2024-03-10\""
+start_date <- "\"2024-03-01\""
 
-end_date <- "\"2024-03-11\""
+end_date <- "\"2024-03-01\""
 
 query <- query %>%
     gsub("\\{start_date\\}", start_date, .) %>%

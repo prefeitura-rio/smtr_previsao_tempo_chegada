@@ -32,6 +32,26 @@ training_data <- training_data[arrival_time < 60,]
 test_data <- test_data[arrival_time < 60,]
 ```
 
+## Medidas de erro
+
+* Erro quadrático médio
+
+\[
+\mathrm{MSE} = \frac{1}{n}\sum_i \big(y_i - \widehat{y}_i\big)^2, \quad \mathrm{RMSE} = \sqrt{\mathrm{MSE}}.
+\]
+
+* Erro absoluto médio
+
+\[
+\mathrm{MAE} = \frac{1}{n}\sum_i \big\lvert y_i - \widehat{y}_i\big\rvert.
+\]
+
+* Desvio absoluto mediano
+
+\[
+\mathrm{MAD} = \mathrm{median}\Big(\big\lvert e_i - \mathrm{median}(e_i)\big\rvert\Big), \quad\text{onde $e_i = y_i - \widehat{y}_i$}.
+\]
+
 ## Modelo Newtoniano
 
 ```{r}
