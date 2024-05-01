@@ -21,9 +21,9 @@ source <- "F:/Dados/SMTR"
 
 query <- readr::read_file("identificacao_pontos.sql")
 
-start_date <- "\"2024-03-01\""
+start_date <- "\"2024-03-04\""
 
-end_date <- "\"2024-03-01\""
+end_date <- "\"2024-03-08\""
 
 query <- query %>%
     gsub("\\{start_date\\}", start_date, .) %>%
@@ -31,7 +31,7 @@ query <- query %>%
 
 dat <- read_sql(query)
 
-download(query, path = file.path(source, "gps_week_2_2.csv"))
+download(query, path = file.path(source, "gps_week_1.csv"))
 
 ###########################
 ## 2) Testes de sanidade ##
