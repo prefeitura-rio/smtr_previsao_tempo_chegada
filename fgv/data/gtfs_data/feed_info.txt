@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_start_date,feed_end_date,feed_version,feed_contact_email
+Secretaria Municipal de Transportes,http://transportes.prefeitura.rio,pt,20240101,20241231,02Q0324,guilherme.alves@rio.rj.gov.br
