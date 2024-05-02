@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+import src.utils as utils
+
 class GTFSHandler:
     def __init__(self, gtfs_folder_path):
         self.gtfs_folder_path = gtfs_folder_path
@@ -42,6 +44,8 @@ class GTFSHandler:
         merged_df = pd.merge(merged_df, self.route_stops[["stop_id", "stop_name", "stop_lat", "stop_lon"]], on='stop_id')
         # Drop duplicates and unnecessary columns
         merged_df = merged_df.drop(columns=["trip_id", "arrival_time", "departure_time", "stop_headsign", "timepoint"])
+        # Rename the shape_dist_traveled column
+        merged_df = merged_df.rename(columns={"shape_dist_traveled": "stop_distance"})
         merged_df = merged_df.drop_duplicates()
         # Sort by direction_id and stop_sequence
         merged_df = merged_df.sort_values(by=["direction_id", "stop_sequence"])
@@ -67,6 +71,15 @@ class GTFSHandler:
         shape_segments = [tuple(shape_points[i:i+2]) for i in range(len(shape_points)-1)]
 
         return shape_segments
+    
+    def get_shape_by_direction(self, direction_id):
+        assert len(self.route_shape_ids) > 1, "Please filter the data by a route first!"
+
+        # Get the shape ids for the direction
+        shape_ids = self.route_trips[self.route_trips['direction_id'] == direction_id]['shape_id'].unique()
+
+        # Get the shape for the direction
+        return self.shapes[self.shapes['shape_id'].isin(shape_ids)]
 
     def plot_route(self, title='Route'):
         
