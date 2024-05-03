@@ -286,7 +286,7 @@ GPSShapesDesem as (
 GPSStops as (
     select *,
         ST_GEOGPOINT(stop_lon, stop_lat) stop_geo
-    from GPSShapesFill
+    from GPSShapesDesem
         left join GTFSStops using(data, servico, shape_id)
     where ABS(stop_lon - longitude) < 0.005 and ABS(stop_lat - latitude) < 0.005
 ),
@@ -478,6 +478,10 @@ GPSStopsDistance as (
     from GPSNextStop
 )
         
-select * from GPSStopsDistance 
-    where dist_next_stop > 0 and dist_next_stop < 1000
-        and arrival_time < 60
+--select *
+--    from GPSStopsDistance
+--    where dist_next_stop > 0 and dist_next_stop < 1000
+--        and arrival_time > 0 and arrival_time < 60
+--        and (tipo_parada is null or tipo_parada != "garagem")
+
+select * from GPS

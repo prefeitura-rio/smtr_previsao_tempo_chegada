@@ -111,6 +111,23 @@ GPS as (
 -- identificando shape ids --
 -----------------------------
 
+-- geometria da posição do ônibus
+
+GPSCoords as (
+    select *,
+        ST_GEOGPOINT(longitude, latitude) posicao_veiculo_geo
+    from GPS
+),
+
+-- projetando posição do ônibus nas geometrias
+
+GPSProject as (
+    select *,
+        ST_CLOSESTPOINT(shape, posicao_veiculo_geo) shape_proj
+    from GPSCoords
+        left join Shapes using(servico, data)
+),
+
 -- join do gps com shapes para identificar viagens
 -- para agilizar o processamento, pego apenas shape_pts
 -- em um 'raio' de aprox 500m do ônibus, usando as coordenadas
@@ -157,8 +174,8 @@ GPSShapePoints as (
 GPSShapesLag as (
     select *,
         LAG(dist_traveled_shape) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps)
         as lag_dist_traveled_shape
     from GPSShapePoints
 ),
@@ -181,8 +198,8 @@ GPSShapesChange as (
 GPSShapesFill as (
     select * except(lag_dist_traveled_shape),
         LAST_VALUE(lag_dist_traveled_shape IGNORE NULLS) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps
             rows between unbounded preceding and current row)
         as lag_dist_traveled_shape
     from GPSShapesChange
@@ -193,8 +210,8 @@ GPSShapesFill as (
 GPSShapesLag2 as (
     select *,
         LAG(lag_dist_traveled_shape) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps)
         as lag_2_dist_traveled_shape
     from GPSShapesFill
 ),
@@ -212,8 +229,8 @@ GPSShapesChange2 as (
 GPSShapesFill2 as (
     select * except(lag_2_dist_traveled_shape),
         LAST_VALUE(lag_2_dist_traveled_shape IGNORE NULLS) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps
             rows between unbounded preceding and current row)
         as lag_2_dist_traveled_shape
     from GPSShapesChange2
@@ -224,8 +241,8 @@ GPSShapesFill2 as (
 GPSShapesLag3 as (
     select *,
         LAG(lag_2_dist_traveled_shape) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps)
         as lag_3_dist_traveled_shape
     from GPSShapesFill2
 ),
@@ -243,8 +260,8 @@ GPSShapesChange3 as (
 GPSShapesFill3 as (
     select * except(lag_3_dist_traveled_shape),
         LAST_VALUE(lag_3_dist_traveled_shape IGNORE NULLS) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps
             rows between unbounded preceding and current row)
         as lag_3_dist_traveled_shape
     from GPSShapesChange3
@@ -353,8 +370,8 @@ GPSStopsId as (
 GPSStopsLag as (
     select *,
         LAG(stop) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps)
         as lag_stop
     from GPSStopsId
 ),
@@ -379,8 +396,8 @@ GPSStopsTime as (
 GPSStopsFill as (
     select * except(arrival_time),
         FIRST_VALUE(arrival_time IGNORE NULLS) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps
             rows between current row and unbounded following)
         as arrival_time,
     from GPSStopsTime
@@ -392,8 +409,8 @@ GPSStopsFill as (
 GPSStopsLead as (
     select *,
         LEAD(arrival_time) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps)
         as lead_arrival_time
     from GPSStopsFill
     where arrival_time is not null
@@ -413,12 +430,13 @@ GPSStopsNext as (
 ),
 
 -- estendo essa variável de baixo pra cima:
+-- retrinjo ao mesmo dia
 
 GPSArrivalFill as (
     select * except(lead_arrival_time),
         FIRST_VALUE(lead_arrival_time IGNORE NULLS) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps
             rows between current row and unbounded following)
         as lead_arrival_time
     from GPSStopsNext
@@ -444,7 +462,9 @@ GPSArrivalTime as (
     from GPSArrival
 )
         
-select * from GPSArrivalTime 
-    where dist_next_stop > 0 and dist_next_stop < 1000
-        and arrival_time > 0 and arrival_time < 60
-        and tipo_parada != "garagem"
+--select * from GPSArrivalTime 
+--    where dist_next_stop > 0 and dist_next_stop < 1000
+--        and arrival_time > 0 and arrival_time < 60
+--        and (tipo_parada is null or tipo_parada != "garagem")
+
+select * from GTFSShapes
