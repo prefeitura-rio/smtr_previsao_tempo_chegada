@@ -84,16 +84,22 @@ GTFSStops as (
 -- agora para linkar serviços e shapes
         
 TripShapes as (
-    select distinct data, shape_id, route_id, shape_pt_lat, shape_pt_lon, dist_traveled_shape
+    select distinct data, shape_id, route_id
     from Trips
-        left join Shapes using(shape_id, data)
+        left join ShapesGeom using(shape_id, data)
 ),
 
-GTFSShapes as (
-    select distinct data, shape_id, servico, shape_pt_lat, shape_pt_lon, dist_traveled_shape
+GTFSPreShapes as (
+    select distinct data, shape_id, servico
     from TripShapes
         left join Routes using(route_id, data)
         
+),
+
+GTFSShapes as (
+    select data, shape_id, servico, shape, start_pt, end_pt
+    from GTFSPreShapes
+        left join ShapesGeom using(shape_id, data)
 ),
         
 -- lendo a base de gps
@@ -117,8 +123,7 @@ GPS as (
 AuxDump as (
     select *, 
         ST_DUMP(shape, 1) dump
-    from ShapesGeom
-    limit 10
+    from GTFSShapes
 ),
 
 -- truque para fazer UNNEST da coluna de arrays
@@ -129,7 +134,7 @@ AuxLines as (
     with A as (
         select * from AuxDump
     )
-    select data, shape_id, start_pt, end_pt, lines 
+    select data, shape_id, servico, start_pt, end_pt, lines 
     from A, A.dump as lines
 ),
 
@@ -138,9 +143,9 @@ AuxLines as (
 AuxDistances as (
     select *,
         SUM(ST_LENGTH(lines)) over(
-            partition by shape_id, data
+            partition by shape_id, servico, data
             rows between unbounded preceding and current row)
-        as dist_traveled
+        as dist_traveled_shape
     from AuxLines
 ),
 
@@ -150,7 +155,6 @@ GPSCoords as (
     select *,
         ST_GEOGPOINT(longitude, latitude) posicao_veiculo_geo,
     from GPS
-    where servico = "309"
 ),
 
 -- encontro em qual segmento de reta o ônibus está
@@ -160,15 +164,16 @@ GPSShapesDist as (
     select *,
         ST_DISTANCE(posicao_veiculo_geo, lines) as distancia_shape
     from GPSCoords
-        left join AuxDistances using(data)
+        left join AuxDistances using(data, servico)
 ),
         
--- mantendo o ponto mais próximo de cada shape_id
+-- mantendo apenas a line mais próxima de cada ponto
         
 GPSShapesClosest as (
-    select id_veiculo, shape_id, timestamp_gps, MIN(distancia_shape) as distancia_shape
+    select id_veiculo, timestamp_gps, shape_id, MIN(distancia_shape) as distancia_shape
     from GPSShapesDist
-    group by id_veiculo, shape_id, timestamp_gps
+    where distancia_shape < 500
+    group by id_veiculo, timestamp_gps, shape_id
 ),
 
 -- inner join para ficar apenas com os pontos mais proximos
@@ -179,129 +184,71 @@ GPSShapePoints as (
     select * except(distancia_shape)
     from GPSShapesDist
         inner join GPSShapesClosest using(distancia_shape, id_veiculo, shape_id, timestamp_gps)
-    where distancia_shape < 500
+    qualify
+        ROW_NUMBER() over (
+        partition by id_veiculo, shape_id, timestamp_gps
+        order by distancia_shape) = 1
 ),
 
--- join do gps com shapes para identificar viagens
--- para agilizar o processamento, pego apenas shape_pts
--- em um 'raio' de aprox 500m do ônibus, usando as coordenadas
-        
-GPSShapes as (
+-- projetando o ponto na linha mais próxima para calcular distância
+
+GPSProjectPoint as (
     select *,
-        ST_GEOGPOINT(longitude, latitude) posicao_veiculo_geo,
-        ST_GEOGPOINT(shape_pt_lon, shape_pt_lat) shape_pt_geo
-    from GPS
-        left join GTFSShapes using(servico, data)
-        where ABS(shape_pt_lon - longitude) < 0.005 and ABS(shape_pt_lat - latitude) < 0.005
+        ST_LINELOCATEPOINT(lines, posicao_veiculo_geo) as perc_traveled
+    from GPSShapePoints
 ),
 
--- agora a ideia é encontrar o último vértice da shape onde o ônibus esteve
--- calculo para a obs. anterior, mas o ônibus pode não ter andado o suficiente
+-- calculando distância real acumulada
+
+GPSProjectDist as (
+    select * except(dist_traveled_shape),
+        dist_traveled_shape + perc_traveled * ST_LENGTH(lines) as dist_traveled_shape
+    from GPSProjectPoint
+),
+
+-----------------------------
+-- identificando shape ids --
+-----------------------------
+
+-- vejo se o ônibus está andando para frente:
+-- dist_traveled_shape tem que aumentar
 
 GPSShapesLag as (
     select *,
         LAG(dist_traveled_shape) over(
             partition by id_veiculo, shape_id, data
             order by id_veiculo, shape_id, data, timestamp_gps)
-        as lag_dist_traveled_shape
-    from GPSShapePoints
-),
-
--- crio uma variável que só não é null quando a distância muda
-
-GPSShapesChange as (
-    select * except(lag_dist_traveled_shape),
-        case
-            when dist_traveled_shape != lag_dist_traveled_shape
-                then lag_dist_traveled_shape
-            else null
-        end lag_dist_traveled_shape
-    from GPSShapesLag
-),
-
--- estendo essa variável de cima pra baixo:
--- assim pego o último valor distinto
-
-GPSShapesFill as (
-    select * except(lag_dist_traveled_shape),
-        LAST_VALUE(lag_dist_traveled_shape IGNORE NULLS) over(
-            partition by id_veiculo, shape_id, data
-            order by id_veiculo, shape_id, data, timestamp_gps
-            rows between unbounded preceding and current row)
-        as lag_dist_traveled_shape
-    from GPSShapesChange
-),
-
--- repito para pegar o segundo ponto anterior
-
-GPSShapesLag2 as (
-    select *,
-        LAG(lag_dist_traveled_shape) over(
+        as lag_dist_traveled_shape,
+        LAG(dist_traveled_shape, 2) over(
             partition by id_veiculo, shape_id, data
             order by id_veiculo, shape_id, data, timestamp_gps)
-        as lag_2_dist_traveled_shape
-    from GPSShapesFill
-),
-
-GPSShapesChange2 as (
-    select * except(lag_2_dist_traveled_shape),
-        case
-            when lag_dist_traveled_shape != lag_2_dist_traveled_shape
-                then lag_2_dist_traveled_shape
-            else null
-        end lag_2_dist_traveled_shape
-    from GPSShapesLag2
-),
-
-GPSShapesFill2 as (
-    select * except(lag_2_dist_traveled_shape),
-        LAST_VALUE(lag_2_dist_traveled_shape IGNORE NULLS) over(
-            partition by id_veiculo, shape_id, data
-            order by id_veiculo, shape_id, data, timestamp_gps
-            rows between unbounded preceding and current row)
-        as lag_2_dist_traveled_shape
-    from GPSShapesChange2
-),
-
--- repito a terceita vez
-
-GPSShapesLag3 as (
-    select *,
-        LAG(lag_2_dist_traveled_shape) over(
+        as lag_2_dist_traveled_shape,
+        LAG(dist_traveled_shape, 3) over(
             partition by id_veiculo, shape_id, data
             order by id_veiculo, shape_id, data, timestamp_gps)
-        as lag_3_dist_traveled_shape
-    from GPSShapesFill2
-),
-
-GPSShapesChange3 as (
-    select * except(lag_3_dist_traveled_shape),
-        case
-            when lag_2_dist_traveled_shape != lag_3_dist_traveled_shape
-                then lag_3_dist_traveled_shape
-            else null
-        end lag_3_dist_traveled_shape
-    from GPSShapesLag3
-),
-
-GPSShapesFill3 as (
-    select * except(lag_3_dist_traveled_shape),
-        LAST_VALUE(lag_3_dist_traveled_shape IGNORE NULLS) over(
+        as lag_3_dist_traveled_shape,
+        LAG(dist_traveled_shape, 4) over(
             partition by id_veiculo, shape_id, data
-            order by id_veiculo, shape_id, data, timestamp_gps
-            rows between unbounded preceding and current row)
-        as lag_3_dist_traveled_shape
-    from GPSShapesChange3
+            order by id_veiculo, shape_id, data, timestamp_gps)
+        as lag_4_dist_traveled_shape,
+        LAG(dist_traveled_shape, 5) over(
+            partition by id_veiculo, shape_id, data
+            order by id_veiculo, shape_id, data, timestamp_gps)
+        as lag_5_dist_traveled_shape
+    from GPSProjectDist
 ),
 
--- na shape_id correta, as distâncias só podem ter aumentado
+-- filtrando para caminhos crescentes
 
 GPSShapesIncreasing as (
-    select * except(lag_dist_traveled_shape, lag_2_dist_traveled_shape)
-    from GPSShapesFill3
-    where dist_traveled_shape > lag_dist_traveled_shape
-        and lag_dist_traveled_shape > lag_2_dist_traveled_shape
-        and lag_2_dist_traveled_shape > lag_3_dist_traveled_shape
+    select * except(lag_dist_traveled_shape, lag_2_dist_traveled_shape,
+    lag_3_dist_traveled_shape, lag_4_dist_traveled_shape, lag_5_dist_traveled_shape)
+    from GPSShapesLag
+    where dist_traveled_shape >= lag_dist_traveled_shape
+        and lag_dist_traveled_shape >= lag_2_dist_traveled_shape
+        and lag_2_dist_traveled_shape >= lag_3_dist_traveled_shape
+        and lag_3_dist_traveled_shape >= lag_4_dist_traveled_shape
+        and lag_4_dist_traveled_shape >= lag_5_dist_traveled_shape
 ),
 
 -- se uma observação é ambígua, removo
@@ -328,12 +275,17 @@ GPSShapesDesem as (
 -- o próximo é o menor com distância acima da atual
 
 AuxNextStop as (
-    select id_veiculo, timestamp_gps, g.shape_id as shape_id, MIN(dist_traveled_stop) as dist_traveled_next_stop
+    select id_veiculo, timestamp_gps, g.shape_id as shape_id, dist_traveled_stop
     from GPSShapesDesem g
         left join GTFSStops s on
             g.data = s.data and g.servico = s.servico and g.shape_id = s.shape_id
-            and g.dist_traveled_shape + 50 < s.dist_traveled_stop
-    group by id_veiculo, timestamp_gps, g.shape_id
+            and g.dist_traveled_shape < s.dist_traveled_stop
+),
+
+AuxMinNextStop as (
+    select id_veiculo, timestamp_gps, shape_id, MIN(dist_traveled_stop) as dist_traveled_next_stop
+    from AuxNextStop
+    group by id_veiculo, timestamp_gps, shape_id
 ),
 
 -- join com a base completa para identificar o ponto seguinte de cada obs.
@@ -342,8 +294,7 @@ GPSNextStop as (
     select *,
     dist_traveled_next_stop - dist_traveled_shape as dist_next_stop
     from GPSShapesDesem
-        left join AuxNextStop using(id_veiculo, timestamp_gps, shape_id)
-    where dist_traveled_next_stop > dist_traveled_shape
+        left join AuxMinNextStop using(id_veiculo, timestamp_gps, shape_id)
 ),
 
 -----------------------
@@ -489,9 +440,7 @@ GPSArrivalTime as (
     from GPSArrival
 )
         
---select * from GPSArrivalTime 
---    where dist_next_stop > 0 and dist_next_stop < 1000
---        and arrival_time > 0 and arrival_time < 60
---        and (tipo_parada is null or tipo_parada != "garagem")
-
-select * from GPSShapePoints
+select * from GPSArrivalTime 
+    --where dist_next_stop > 0 and dist_next_stop < 1000
+    --    and arrival_time > 0 and arrival_time < 60
+    --    and (tipo_parada is null or tipo_parada != "garagem")
