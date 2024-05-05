@@ -22,9 +22,9 @@ source <- "F:/Dados/SMTR"
 Lendo os dados: base de treino, de 04/03/2024 a 08/03/2024 (dias de semana), e base de teste, de 11/03/2024 a 12/04/2024. Tiro outliers com tempo de chegada acima de 1h e distância ao próximo ponto acima de 1km.
 
 ```{r, message = FALSE}
-training_data <- fread(file.path(source, "gps_training_shapes_old.csv"))
+training_data <- fread(file.path(source, "gps_training_proj.csv"))
 
-test_data <- fread(file.path(source, "gps_test_shapes_old.csv"))
+test_data <- fread(file.path(source, "gps_test_proj.csv"))
 ```
 
 ## Medidas de erro
@@ -86,11 +86,11 @@ prediction_errors <- function(df, modelo) {
 bench <- training_data %>%
     summarise(
         est_arrival_time = mean(arrival_time, na.rm = TRUE),
-        .by = c("servico", "stop_id")
+        .by = c("servico", "next_stop_id")
     )
 
 bench <- test_data %>%
-    left_join(bench, by = c("servico", "stop_id"))
+    left_join(bench, by = c("servico", "next_stop_id"))
 
 bench <- prediction_errors(bench, "Médias históricas")
 
@@ -113,7 +113,7 @@ newton <- test_data %>%
         est_arrival_time = 1/1000 * dist_next_stop/velocidade_estimada_10_min
     )
 
-newton <- prediction_errors(newton, "Newtoniano simples")
+newton <- prediction_errors(newton, "Newtoniano")
 
 models <- models %>%
     bind_rows(newton)
@@ -124,12 +124,13 @@ kable(models, digits = 1)
 ## Regressão linear
 
 \[
-\log(\widehat{y}_i) = \alpha + \beta\,\log(\text{distância}) + \gamma\,\log(\text{velocidade 10mins})
+\log(\widehat{y}_i) = \alpha + \beta\,\log(\text{distância}) + \gamma\,\log(v_\text{10mins}) + \delta\, \log(v_\text{inst} + 1)
 \]
 
 ```{r, echo = FALSE}
 reg_newton <- lm(
-    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min),
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min) 
+    + log(velocidade_instantanea + 1),
     data = training_data
 )
 
@@ -160,7 +161,8 @@ test_data <- test_data %>%
 # Estimando
 
 fe_reg <- feols(
-    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min) | servico^stop_id,
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min) 
+    + log(velocidade_instantanea + 1) | servico^next_stop_id,
     data = training_data,
     combine.quick = FALSE
 )
@@ -169,7 +171,7 @@ fe_reg <- feols(
 
 fe_reg <- test_data %>%
     bind_cols("est_arrival_time" = predict(fe_reg, test_data)) %>%
-    prediction_errors("Regressão com EF")
+    prediction_errors("EF de serviço-ponto")
 
 models <- models %>%
     bind_rows(fe_reg)
@@ -187,7 +189,8 @@ kable(models, digits = 1)
 # Estimando
 
 fe_reg_hora <- feols(
-    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min) | servico^stop_id + stop_id^hora,
+    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min)
+    + log(velocidade_instantanea + 1) | servico^next_stop_id + next_stop_id^hora,
     data = training_data,
     combine.quick = FALSE
 )
@@ -196,7 +199,7 @@ fe_reg_hora <- feols(
 
 fe_reg_hora <- test_data %>%
     bind_cols("est_arrival_time" = predict(fe_reg_hora, test_data)) %>%
-    prediction_errors("EF com hora")
+    prediction_errors("EF de serviço-ponto e ponto-hora")
 
 models <- models %>%
     bind_rows(fe_reg_hora)

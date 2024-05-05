@@ -33,7 +33,7 @@ query <- query %>%
 
 download(query, path = file.path(source, "gps_test_proj.csv"))
 
- ###########################
+###########################
 ## 2) Testes de sanidade ##
 ###########################
 
