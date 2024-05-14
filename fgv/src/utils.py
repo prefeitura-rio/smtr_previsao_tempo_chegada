@@ -205,3 +205,70 @@ def distance_travelled(px, py, ax, ay, da, bx, by, db):
             distance_traveled = da + (px_hat - ax) / (bx - ax) * (db - da)
 
     return distance_traveled
+
+@jit(nopython=True)
+def infer_bus_direction(distance_traveled_inbound, distance_traveled_outbound, tolerance=100):
+    """
+    Infers the bus direction based on the distance traveled for inbound and outbound routes.
+
+    Args:
+        distance_traveled_inbound (np.array): The distance traveled on the inbound route during last records.
+        distance_traveled_outbound (np.array): The distance traveled on the outbound route during last records.
+
+    Returns:
+        int: The inferred bus direction (0 for inbound, 1 for outbound).
+    """
+
+    # Evaluate the mean of the distances traveled among the last records in each direction
+    mean_dist_traveled_inbound = np.mean(distance_traveled_inbound) - distance_traveled_inbound[0]
+    mean_dist_traveled_outbound = np.mean(distance_traveled_outbound) - distance_traveled_outbound[0]
+
+    # Get the difference between the mean of the distances
+    diff_mean_distance_traveled = mean_dist_traveled_inbound - mean_dist_traveled_outbound
+
+    if abs(diff_mean_distance_traveled) > tolerance:
+        if diff_mean_distance_traveled > 0:
+            return 0
+        else:
+            return 1
+    else:
+        return -1
+    
+@jit(nopython=True)
+def assign_direction(gps_in_route, gps_distance_dir_0, gps_distance_dir_1, N=5):
+    """
+    Assigns the direction to a GPS point based on the distance from the start of the route.
+    
+    Parameters:
+    gps_in_route (np.array): Array of boolean values indicating if the GPS point is in the route.
+    gps_distance_dir_0 (np.array): Array of distances traveled on the inbound route.
+    gps_distance_dir_1 (np.array): Array of distances traveled on the outbound route.
+
+    Returns:
+    np.array: Array of inferred directions for each GPS point (-1 for unknown, 0 for inbound, 1 for outbound)
+    """
+
+    # Initialize the result array with -1 for unknown direction
+    result = np.full(len(gps_in_route), -1)
+    directly_infered = np.full(len(gps_in_route), False)
+
+    # Iterate over the GPS points, starting from the N-th point
+    for i in range(N, len(gps_in_route)):
+        # If the GPS point is not in the route, skip
+        if gps_in_route[i] == False:
+            continue
+
+        # Get the last N elements of each direction
+        result[i] = infer_bus_direction(gps_distance_dir_0[i-N:i], gps_distance_dir_1[i-N:i])
+        if result[i] != -1:
+            directly_infered[i] = True
+
+        # If the last datapoints are in route and the directions are still unknown, assign the direction infered
+        for j in range(i, 0, -1):
+            if result[j] != -1 and result[j-1] == -1 and gps_in_route[j-1] == True:
+                result[j-1] = result[j]
+            else:
+                break
+
+    # Return the array with the infered directions and the method used to infer them
+    return result, directly_infered

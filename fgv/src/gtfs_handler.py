@@ -107,3 +107,21 @@ class GTFSHandler:
         plt.grid()
 
         plt.show()
+
+    def get_stops_by_direction(self):
+        # Get the route directions
+        route_directions = self.route_stops['direction_id'].unique()
+
+        # Initialize the lists to store the stops and distances by direction
+        self.stops_by_direction = []
+        self.stops_distances_by_direction = []
+
+        # Iterate over the directions
+        for direction in route_directions:
+
+            # Get the stops for each direction
+            self.stops_by_direction.append(self.route_stops[self.route_stops['direction_id'] == direction])
+            # Get a np array with the stop_distance for each stop and each direction
+            self.stops_distances_by_direction.append(np.array(self.stops_by_direction[direction]['stop_distance'].values))
+
+    
