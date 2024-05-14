@@ -272,3 +272,62 @@ def assign_direction(gps_in_route, gps_distance_dir_0, gps_distance_dir_1, N=5):
 
     # Return the array with the infered directions and the method used to infer them
     return result, directly_infered
+
+@jit(nopython=True)
+def assign_distance_traveled(gps_in_route, gps_direction, gps_distance_dir_0, gps_distance_dir_1):
+    """
+    Assigns the distance traveled to each GPS point based on the infered direction.
+
+    Args:
+        gps_in_route (np.array): Array of boolean values indicating if the GPS point is in the route.
+        gps_direction (np.array): Array of inferred directions for each GPS point (-1 for unknown, 0 for inbound, 1 for outbound).
+        gps_distance_dir_0 (np.array): Array of distances traveled on the inbound route.
+        gps_distance_dir_1 (np.array): Array of distances traveled on the outbound route.
+
+    Returns:
+        tuple: Arrays of distances traveled and cumulative distances traveled for each GPS point.
+    """
+
+    # Initialize arrays to store the distance traveled and the cumulative distance traveled
+    distance_traveled = np.zeros(len(gps_in_route))
+    cumulative_distance_traveled = np.zeros(len(gps_in_route))
+
+    # Initialize the distance offset (to compensate direction changes)
+    distance_offset = 0
+
+    # Iterate over the GPS points
+    for i in range(len(gps_in_route)):
+
+        # If the GPS point is not in the route, set the distance traveled to 0
+        if gps_in_route[i] == False:
+            distance_traveled[i] = 0
+        # Otherwise, set the distance traveled based on the direction (or 0, if the direction is unknown)
+        else:
+            if gps_direction[i] == 0:
+                distance_traveled[i] = gps_distance_dir_0[i]
+            elif gps_direction[i] == 1:
+                distance_traveled[i] = gps_distance_dir_1[i]
+            else:
+                distance_traveled[i] = 0
+
+        # Detect direction changes, and update the distance offset
+        if i > 0 and gps_direction[i] != gps_direction[i-1]:
+            distance_offset += distance_traveled[i-1]
+        
+        # Update the cumulative distance traveled
+        cumulative_distance_traveled[i] = distance_traveled[i] + distance_offset
+
+    # Return the distance arrays
+    return distance_traveled, cumulative_distance_traveled
+
+    """
+    Get the index of the next stop after the GPS distance.
+
+    Args:
+        gps_distance (float): The GPS distance traveled
+        stop_distances (np.array): The distance traveled to each bus stop
+
+    Returns:
+        int: The index of the next stop.
+    """
+    return get_closest_stop(gps_distance, stop_distances, mode="next")
