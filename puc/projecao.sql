@@ -324,9 +324,30 @@ GPSStopsLag as (
 -- calculando tempo até o ponto seguinte:
 -- marco o tempo de chegada como o momento em que há uma mudança de ponto
 
+-- há duas grandes fontes de imprecisão:
+-- quando os ônibus ficam parados enquanto o tempo conta,
+-- e quando ele desaparece por algum tempo
+
 GPSStopsChange as (
     select * except(dist_traveled_next_stop, lag_dist_traveled_next_stop),
         case
+            -- quando o ônibus está parado há 5 obs.
+            when dist_traveled_shape = LAG(dist_traveled_shape, 5) over(
+                                        partition by id_veiculo, shape_id
+                                        order by id_veiculo, shape_id, timestamp_gps
+                                        )
+                then DATETIME(1970, 1, 1, 0, 0, 0)
+            -- quando ele some por mais de 5mins em seguida
+            when DATETIME_DIFF(
+                LEAD(timestamp_gps) over(
+                    partition by id_veiculo, shape_id
+                    order by id_veiculo, shape_id, timestamp_gps
+                ),
+                timestamp_gps,
+                SECOND
+            ) > 300
+                then DATETIME(1970, 1, 1, 0, 0, 0)
+            -- quando ele de fato chega ao ponto    
             when dist_traveled_next_stop != lag_dist_traveled_next_stop
                 then timestamp_gps
             else null
@@ -404,9 +425,10 @@ GPSArrivalTime as (
     select * except(arrival_time),
         DATETIME_DIFF(arrival_time, timestamp_gps, MICROSECOND)/(60 * 1000000) as arrival_time
     from GPSArrival
+    where arrival_time != DATETIME(1970, 1, 1, 0, 0, 0)
 )
         
 select * from GPSArrivalTime
-    where dist_next_stop > 0 and dist_next_stop < 1000
-        and arrival_time > 0 and arrival_time < 60
-        and (tipo_parada is null)
+    where dist_next_stop > 0 --and dist_next_stop < 1000
+        --and arrival_time > 0 and arrival_time < 60
+        --and (tipo_parada is null)

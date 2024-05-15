@@ -23,13 +23,13 @@ query <- readr::read_file("projecao.sql")
 
 start_date <- "\"2024-03-11\""
 
-end_date <- "\"2024-03-12\""
+end_date <- "\"2024-03-11\""
 
 query <- query %>%
     gsub("\\{start_date\\}", start_date, .) %>%
     gsub("\\{end_date\\}", end_date, .)
 
-#dat <- read_sql(query)
+dat <- read_sql(query)
 
 download(query, path = file.path(source, "gps_test_proj.csv"))
 
