@@ -238,7 +238,15 @@ GPSShapesLag as (
 
 GPSShapesIncreasing as (
     select * except(lag_dist_traveled_shape, lag_2_dist_traveled_shape,
-    lag_3_dist_traveled_shape, lag_4_dist_traveled_shape, lag_5_dist_traveled_shape)
+    lag_3_dist_traveled_shape, lag_4_dist_traveled_shape),
+    LEAD(dist_traveled_shape) over(
+            partition by id_veiculo, shape_id
+            order by id_veiculo, shape_id, timestamp_gps)
+        as lead_dist_traveled_shape,
+    LEAD(timestamp_gps) over(
+            partition by id_veiculo, shape_id
+            order by id_veiculo, shape_id, timestamp_gps)
+        as lead_timestamp_gps
     from GPSShapesLag
     where dist_traveled_shape >= lag_dist_traveled_shape
         and lag_dist_traveled_shape >= lag_2_dist_traveled_shape
@@ -266,43 +274,32 @@ GPSShapesDesem as (
 -- identificando pontos de onibus --
 ------------------------------------
 
--- encontro o próximo ponto de cada ônibus:
+-- encontro os próximos ponto de cada ônibus:
 -- cada ponto tem uma distancia viajada no shape,
--- o próximo é o menor com distância acima da atual
+-- tomo os com distância maior que a viajada
 
 AuxNextStop as (
     select id_veiculo, timestamp_gps, g.data as data,
-        g.shape_id as shape_id, dist_traveled_stop
+        g.shape_id as shape_id, dist_traveled_stop, stop_id
     from GPSShapesDesem g
         left join GTFSStops s on
             g.data = s.data and g.servico = s.servico and g.shape_id = s.shape_id
             and g.dist_traveled_shape < s.dist_traveled_stop
 ),
 
-AuxMinNextStop as (
-    select data, id_veiculo, timestamp_gps, shape_id, 
-        MIN(dist_traveled_stop) as dist_traveled_stop
-    from AuxNextStop
-    group by data, id_veiculo, timestamp_gps, shape_id
-),
-
--- incluindo id de cada ponto
-
-AuxGetNextStopId as (
-    select data, id_veiculo, timestamp_gps, shape_id,
-        dist_traveled_stop as dist_traveled_next_stop, stop_id as next_stop_id
-    from AuxMinNextStop
-    left join GTFSStops using(data, shape_id, dist_traveled_stop)
-),
-
--- join com a base completa para identificar o ponto seguinte de cada obs.
+-- join com a base completa para identificar os pontos seguintes de cada obs.
 
 GPSNextStop as (
     select *,
-    dist_traveled_next_stop - dist_traveled_shape as dist_next_stop
+        dist_traveled_stop - dist_traveled_shape as dist_to_stop,
+        -- marca a sequência de pontos seguintes, de 1 a n
+        ROW_NUMBER() over(
+            partition by id_veiculo, shape_id, timestamp_gps
+            order by id_veiculo, shape_id, timestamp_gps, dist_traveled_stop
+            ) as stop_order
     from GPSShapesDesem
-        left join AuxGetNextStopId using(data, id_veiculo, timestamp_gps, shape_id)
-    where dist_traveled_next_stop > dist_traveled_shape
+        left join AuxNextStop using(data, id_veiculo, timestamp_gps, shape_id)
+    where dist_traveled_stop > dist_traveled_shape
 ),
 
 -----------------------
@@ -310,16 +307,7 @@ GPSNextStop as (
 -----------------------
 
 -- o ônibus chegou ao ponto quando a distância que ele viajou supera a
--- distância até o ponto: quando o next_stop muda
-
-GPSStopsLag as (
-    select *,
-        LAG(dist_traveled_next_stop) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
-        as lag_dist_traveled_next_stop
-    from GPSNextStop
-),
+-- distância até o ponto
 
 -- calculando tempo até o ponto seguinte:
 -- marco o tempo de chegada como o momento em que há uma mudança de ponto
@@ -329,30 +317,25 @@ GPSStopsLag as (
 -- e quando ele desaparece por algum tempo
 
 GPSStopsChange as (
-    select * except(dist_traveled_next_stop, lag_dist_traveled_next_stop),
+    select * except(dist_traveled_stop, lead_dist_traveled_shape, 
+        lag_5_dist_traveled_shape, lead_timestamp_gps),
         case
             -- quando o ônibus está parado há 5 obs.
-            when dist_traveled_shape = LAG(dist_traveled_shape, 5) over(
-                                        partition by id_veiculo, shape_id
-                                        order by id_veiculo, shape_id, timestamp_gps
-                                        )
+            when dist_traveled_shape = lag_5_dist_traveled_shape
                 then DATETIME(1970, 1, 1, 0, 0, 0)
             -- quando ele some por mais de 5mins em seguida
             when DATETIME_DIFF(
-                LEAD(timestamp_gps) over(
-                    partition by id_veiculo, shape_id
-                    order by id_veiculo, shape_id, timestamp_gps
-                ),
+                lead_timestamp_gps,
                 timestamp_gps,
                 SECOND
             ) > 300
                 then DATETIME(1970, 1, 1, 0, 0, 0)
             -- quando ele de fato chega ao ponto    
-            when dist_traveled_next_stop != lag_dist_traveled_next_stop
-                then timestamp_gps
+            when lead_dist_traveled_shape > dist_traveled_stop
+                then lead_timestamp_gps
             else null
         end arrival_time
-    from GPSStopsLag
+    from GPSNextStop
 ),
 
 -- estendendo de baixo para cima:
@@ -362,61 +345,11 @@ GPSStopsChange as (
 GPSStopsFill as (
     select * except(arrival_time),
         FIRST_VALUE(arrival_time IGNORE NULLS) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps
+            partition by id_veiculo, shape_id, stop_id
+            order by id_veiculo, shape_id, stop_id, timestamp_gps
             rows between current row and unbounded following)
         as arrival_time
     from GPSStopsChange
-),
-
--- no momento em que ele chegou no ponto, considero o tempo de chegada no próximo
--- senão ficam muitos zeros
-
-GPSStopsLead as (
-    select *,
-        LEAD(arrival_time) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
-        as lead_arrival_time
-    from GPSStopsFill
-    where arrival_time is not null
-),
-
--- mas se o ônibus fica muito tempo parado, o lead ainda vai ser o mesmo
--- crio uma variável que só não é null quando o ponto muda
-
-GPSStopsNext as (
-    select * except(lead_arrival_time),
-        case
-            when arrival_time != lead_arrival_time
-                then lead_arrival_time
-            else null
-        end lead_arrival_time
-    from GPSStopsLead
-),
-
--- estendo essa variável de baixo pra cima:
-
-GPSArrivalFill as (
-    select * except(lead_arrival_time),
-        FIRST_VALUE(lead_arrival_time IGNORE NULLS) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps
-            rows between current row and unbounded following)
-        as lead_arrival_time
-    from GPSStopsNext
-),
-
--- quando o ônibus chega no ponto, conta o tempo do seguinte
-
-GPSArrival as (
-    select * except(arrival_time, lead_arrival_time),
-        case
-           when arrival_time = timestamp_gps
-               then lead_arrival_time
-           else arrival_time
-        end arrival_time
-    from GPSArrivalFill
 ),
 
 -- calculo a diferença entre o momento da chegada e o momento atual
@@ -424,11 +357,12 @@ GPSArrival as (
 GPSArrivalTime as (
     select * except(arrival_time),
         DATETIME_DIFF(arrival_time, timestamp_gps, MICROSECOND)/(60 * 1000000) as arrival_time
-    from GPSArrival
+    from GPSStopsFill
     where arrival_time != DATETIME(1970, 1, 1, 0, 0, 0)
 )
         
 select * from GPSArrivalTime
-    where dist_next_stop > 0 --and dist_next_stop < 1000
+    where stop_order <= 5
+    --where --dist_to_stop > 0 --and dist_next_stop < 1000
         --and arrival_time > 0 and arrival_time < 60
         --and (tipo_parada is null)
