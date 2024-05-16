@@ -367,7 +367,6 @@ GPSArrivalTime as (
 )
         
 select * from GPSArrivalTime
-    where stop_order = 1
-    --where --dist_to_stop > 0 --and dist_next_stop < 1000
-        --and arrival_time > 0 and arrival_time < 60
-        --and (tipo_parada is null)
+    where stop_order <= 10
+        and arrival_time < 60
+        and tipo_parada is null

@@ -22,9 +22,9 @@ source <- "F:/Dados/SMTR"
 Lendo os dados: base de treino, de 04/03/2024 a 08/03/2024 (dias de semana), e base de teste, de 11/03/2024 a 12/04/2024. Tiro outliers com tempo de chegada acima de 1h e distância ao próximo ponto acima de 1km.
 
 ```{r, message = FALSE}
-training_data <- fread(file.path(source, "gps_training_proj.csv"))
+training_data <- fread(file.path(source, "gps_training_1_10.csv"))
 
-test_data <- fread(file.path(source, "gps_test_proj.csv"))
+test_data <- fread(file.path(source, "gps_test_1_10.csv"))
 ```
 
 ## Medidas de erro
@@ -69,15 +69,32 @@ models <- data.frame(
 # função que produz medidas de erro
 
 prediction_errors <- function(df, modelo) {
-    df %>%
+    by_stop <- df %>%
         mutate(error = arrival_time - est_arrival_time) %>%
         summarise(
             Modelo = modelo,
             RMSE = sqrt(mean(error^2, na.rm = TRUE)),
             MAE = mean(abs(error), na.rm = TRUE),
             MAPE = mean(abs(error)/arrival_time, na.rm = TRUE),
+            MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE),
+            .by = "stop_order"
+        ) %>%
+        arrange(stop_order) %>%
+        rename("Ordem do ponto" = stop_order) %>%
+        mutate(across(`Ordem do ponto`, as.character))
+    
+    total <- df %>%
+        mutate(error = arrival_time - est_arrival_time) %>%
+        summarise(
+            `Ordem do ponto` = "Total",
+            Modelo = modelo,
+            RMSE = sqrt(mean(error^2, na.rm = TRUE)),
+            MAE = mean(abs(error), na.rm = TRUE),
+            MAPE = mean(abs(error)/arrival_time, na.rm = TRUE),
             MAD = median(abs(error - median(error, na.rm = TRUE)), na.rm = TRUE)
         )
+    
+    bind_rows(total, by_stop)
 }
 ```
 
@@ -86,18 +103,18 @@ prediction_errors <- function(df, modelo) {
 bench <- training_data %>%
     summarise(
         est_arrival_time = mean(arrival_time, na.rm = TRUE),
-        .by = c("servico", "next_stop_id")
+        .by = c("servico", "stop_id", "stop_order")
     )
 
 bench <- test_data %>%
-    left_join(bench, by = c("servico", "next_stop_id"))
+    left_join(bench, by = c("servico", "stop_id", "stop_order"))
 
 bench <- prediction_errors(bench, "Médias históricas")
 
 models <- models %>%
-    bind_rows(bench)
+    bind_rows(bench[1,])
 
-kable(models, digits = 1)
+kable(bench, digits = 1)
 ```
 
 
@@ -110,15 +127,15 @@ kable(models, digits = 1)
 ```{r, echo = FALSE}
 newton <- test_data %>%
     mutate(
-        est_arrival_time = 1/1000 * dist_next_stop/velocidade_estimada_10_min
+        est_arrival_time = 1/1000 * dist_to_stop/velocidade_estimada_10_min
     )
 
 newton <- prediction_errors(newton, "Newtoniano")
 
 models <- models %>%
-    bind_rows(newton)
+    bind_rows(newton[1,])
 
-kable(models, digits = 1)
+kable(newton, digits = 1)
 ```
 
 ## Regressão linear
@@ -129,7 +146,7 @@ kable(models, digits = 1)
 
 ```{r, echo = FALSE}
 reg_newton <- lm(
-    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min) 
+    log(arrival_time) ~ log(dist_to_stop) + log(velocidade_estimada_10_min) 
     + log(velocidade_instantanea + 1),
     data = training_data
 )
@@ -140,9 +157,9 @@ reg_newton <- test_data %>%
     prediction_errors("Regressão simples")
 
 models <- models %>%
-    bind_rows(reg_newton)
+    bind_rows(reg_newton[1,])
 
-kable(models, digits = 1)
+kable(reg_newton, digits = 1)
 ```
 
 ## Regressão com Efeitos Fixos
@@ -161,8 +178,8 @@ test_data <- test_data %>%
 # Estimando
 
 fe_reg <- feols(
-    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min) 
-    + log(velocidade_instantanea + 1) | servico^next_stop_id,
+    log(arrival_time) ~ log(dist_to_stop) + log(velocidade_estimada_10_min) 
+    + log(velocidade_instantanea + 1) | servico^stop_id,
     data = training_data,
     combine.quick = FALSE
 )
@@ -174,9 +191,9 @@ fe_reg <- test_data %>%
     prediction_errors("EF de serviço-ponto")
 
 models <- models %>%
-    bind_rows(fe_reg)
+    bind_rows(fe_reg[1,])
 
-kable(models, digits = 1)
+kable(fe_reg, digits = 1)
 ```
 
 ## Regressão com Efeitos Fixos incluindo horários
@@ -189,8 +206,8 @@ kable(models, digits = 1)
 # Estimando
 
 fe_reg_hora <- feols(
-    log(arrival_time) ~ log(dist_next_stop) + log(velocidade_estimada_10_min)
-    + log(velocidade_instantanea + 1) | servico^next_stop_id + next_stop_id^hora,
+    log(arrival_time) ~ log(dist_to_stop) + log(velocidade_estimada_10_min)
+    + log(velocidade_instantanea + 1) | servico^stop_id + stop_id^hora,
     data = training_data,
     combine.quick = FALSE
 )
@@ -202,21 +219,21 @@ fe_reg_hora <- test_data %>%
     prediction_errors("EF de serviço-ponto e ponto-hora")
 
 models <- models %>%
-    bind_rows(fe_reg_hora)
+    bind_rows(fe_reg_hora[1,])
 
-kable(models, digits = 1)
+kable(fe_reg_hora, digits = 1)
 ```
 
 ## Random Forest
 
-```{r, eval = FALSE}
+```{r, message = FALSE}
 training_data <- training_data %>%
     mutate(across(hora, as.numeric)) %>%
-    mutate(across(flag_trajeto_correto, as.numeric))
+    mutate(across(stop_id, as.factor))
 
 test_data <- test_data %>%
     mutate(across(hora, as.numeric)) %>%
-    mutate(across(flag_trajeto_correto, as.numeric))
+    mutate(across(stop_id, as.factor))
 
 training_subset <- training_data %>%
     slice_sample(prop = 0.05)
@@ -227,9 +244,9 @@ y <- training_subset %>%
 
 x <- training_subset %>%
     select(
-        distancia_ponto, hora, latitude, longitude, flag_trajeto_correto,
+        hora, latitude, longitude,
         velocidade_instantanea, velocidade_estimada_10_min, distancia,
-        dist_traveled_shape, dist_next_stop
+        dist_traveled_shape, dist_to_stop, stop_order
     ) %>%
     as.matrix()
 
@@ -239,24 +256,31 @@ rf <- randomForest(
     keep.forest = TRUE,
     importance = TRUE,
     do.trace = TRUE,
-    ntree = 20
+    ntree = 1000,
+    maxnodes = 24
 )
 
 x_test <- test_data %>%
     select(
-        distancia_ponto, hora, latitude, longitude, flag_trajeto_correto,
+        hora, latitude, longitude,
         velocidade_instantanea, velocidade_estimada_10_min, distancia,
-        dist_traveled_shape, dist_next_stop
+        dist_traveled_shape, dist_to_stop, stop_order
     )
 
 rf <- test_data %>%
-    bind_cols("est_arrival_time" = predict(rf, test_data %>%
-    select(latitude, longitude, velocidade_estimada_10_min))) %>%
+    bind_cols("est_arrival_time" = predict(rf, x_test)) %>%
     prediction_errors("Random Forest")
 
 models <- models %>%
-    bind_rows(rf)
+    bind_rows(rf[1,])
 
+kable(rf, digits = 1)
+```
+
+## Comparativo
+
+```{r}
 kable(models, digits = 1)
 ```
+
 

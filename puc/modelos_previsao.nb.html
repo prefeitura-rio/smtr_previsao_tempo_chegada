@@ -1777,17 +1777,15 @@ tempo de chegada acima de 1h e distância ao próximo ponto acima de
 1km.</p>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudHJhaW5pbmdfZGF0YSA8LSBmcmVhZChmaWxlLnBhdGgoc291cmNlLCBcImdwc190cmFpbmluZ19wcm9qLmNzdlwiKSlcbmBgYCJ9 -->
-<pre class="r"><code>training_data &lt;- fread(file.path(source, &quot;gps_training_proj.csv&quot;))</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudHJhaW5pbmdfZGF0YSA8LSBmcmVhZChmaWxlLnBhdGgoc291cmNlLCBcImdwc190cmFpbmluZ18xXzEwLmNzdlwiKSlcbmBgYCJ9 -->
+<pre class="r"><code>training_data &lt;- fread(file.path(source, &quot;gps_training_1_10.csv&quot;))</code></pre>
 <!-- rnb-source-end -->
-<!-- rnb-output-begin eyJkYXRhIjoifC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfFxufD09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09fFxufC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfFxufD09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09fFxuIn0= -->
+<!-- rnb-output-begin eyJkYXRhIjoifC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfFxufD09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09fFxuIn0= -->
 <pre><code>|--------------------------------------------------|
-|==================================================|
-|--------------------------------------------------|
 |==================================================|</code></pre>
 <!-- rnb-output-end -->
-<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudGVzdF9kYXRhIDwtIGZyZWFkKGZpbGUucGF0aChzb3VyY2UsIFwiZ3BzX3Rlc3RfcHJvai5jc3ZcIikpXG5gYGAifQ== -->
-<pre class="r"><code>test_data &lt;- fread(file.path(source, &quot;gps_test_proj.csv&quot;))</code></pre>
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxudGVzdF9kYXRhIDwtIGZyZWFkKGZpbGUucGF0aChzb3VyY2UsIFwiZ3BzX3Rlc3RfMV8xMC5jc3ZcIikpXG5gYGAifQ== -->
+<pre class="r"><code>test_data &lt;- fread(file.path(source, &quot;gps_test_1_10.csv&quot;))</code></pre>
 <!-- rnb-source-end -->
 <!-- rnb-output-begin eyJkYXRhIjoifC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfFxufD09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09fFxufC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tfFxufD09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09fFxuIn0= -->
 <pre><code>|--------------------------------------------------|
@@ -1846,6 +1844,7 @@ tempo de chegada acima de 1h e distância ao próximo ponto acima de
 <table>
 <thead>
 <tr class="header">
+<th align="left">Ordem do ponto</th>
 <th align="left">Modelo</th>
 <th align="right">RMSE</th>
 <th align="right">MAE</th>
@@ -1855,11 +1854,92 @@ tempo de chegada acima de 1h e distância ao próximo ponto acima de
 </thead>
 <tbody>
 <tr class="odd">
+<td align="left">Total</td>
 <td align="left">Médias históricas</td>
 <td align="right">2.6</td>
+<td align="right">1.6</td>
+<td align="right">0.3</td>
 <td align="right">0.9</td>
-<td align="right">0.9</td>
+</tr>
+<tr class="even">
+<td align="left">1</td>
+<td align="left">Médias históricas</td>
+<td align="right">1.4</td>
+<td align="right">0.7</td>
+<td align="right">0.7</td>
 <td align="right">0.4</td>
+</tr>
+<tr class="odd">
+<td align="left">2</td>
+<td align="left">Médias históricas</td>
+<td align="right">1.7</td>
+<td align="right">1.0</td>
+<td align="right">0.4</td>
+<td align="right">0.5</td>
+</tr>
+<tr class="even">
+<td align="left">3</td>
+<td align="left">Médias históricas</td>
+<td align="right">2.0</td>
+<td align="right">1.2</td>
+<td align="right">0.3</td>
+<td align="right">0.7</td>
+</tr>
+<tr class="odd">
+<td align="left">4</td>
+<td align="left">Médias históricas</td>
+<td align="right">2.2</td>
+<td align="right">1.4</td>
+<td align="right">0.3</td>
+<td align="right">0.8</td>
+</tr>
+<tr class="even">
+<td align="left">5</td>
+<td align="left">Médias históricas</td>
+<td align="right">2.5</td>
+<td align="right">1.6</td>
+<td align="right">0.3</td>
+<td align="right">1.0</td>
+</tr>
+<tr class="odd">
+<td align="left">6</td>
+<td align="left">Médias históricas</td>
+<td align="right">2.7</td>
+<td align="right">1.7</td>
+<td align="right">0.3</td>
+<td align="right">1.1</td>
+</tr>
+<tr class="even">
+<td align="left">7</td>
+<td align="left">Médias históricas</td>
+<td align="right">2.9</td>
+<td align="right">1.9</td>
+<td align="right">0.3</td>
+<td align="right">1.3</td>
+</tr>
+<tr class="odd">
+<td align="left">8</td>
+<td align="left">Médias históricas</td>
+<td align="right">3.1</td>
+<td align="right">2.1</td>
+<td align="right">0.3</td>
+<td align="right">1.4</td>
+</tr>
+<tr class="even">
+<td align="left">9</td>
+<td align="left">Médias históricas</td>
+<td align="right">3.3</td>
+<td align="right">2.3</td>
+<td align="right">0.2</td>
+<td align="right">1.6</td>
+</tr>
+<tr class="odd">
+<td align="left">10</td>
+<td align="left">Médias históricas</td>
+<td align="right">3.5</td>
+<td align="right">2.4</td>
+<td align="right">0.2</td>
+<td align="right">1.7</td>
 </tr>
 </tbody>
 </table>
@@ -1884,6 +1964,7 @@ ponto}}{\text{velocidade média últimos 10mins}}
 <table>
 <thead>
 <tr class="header">
+<th align="left">Ordem do ponto</th>
 <th align="left">Modelo</th>
 <th align="right">RMSE</th>
 <th align="right">MAE</th>
@@ -1893,18 +1974,92 @@ ponto}}{\text{velocidade média últimos 10mins}}
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">Médias históricas</td>
-<td align="right">2.6</td>
-<td align="right">0.9</td>
-<td align="right">0.9</td>
-<td align="right">0.4</td>
+<td align="left">Total</td>
+<td align="left">Newtoniano</td>
+<td align="right">8.1</td>
+<td align="right">6.3</td>
+<td align="right">1</td>
+<td align="right">2.9</td>
 </tr>
 <tr class="even">
+<td align="left">1</td>
 <td align="left">Newtoniano</td>
-<td align="right">4.8</td>
-<td align="right">1.7</td>
-<td align="right">1.0</td>
+<td align="right">2.5</td>
+<td align="right">1.4</td>
+<td align="right">1</td>
 <td align="right">0.5</td>
+</tr>
+<tr class="odd">
+<td align="left">2</td>
+<td align="left">Newtoniano</td>
+<td align="right">3.8</td>
+<td align="right">2.6</td>
+<td align="right">1</td>
+<td align="right">0.9</td>
+</tr>
+<tr class="even">
+<td align="left">3</td>
+<td align="left">Newtoniano</td>
+<td align="right">5.0</td>
+<td align="right">3.9</td>
+<td align="right">1</td>
+<td align="right">1.0</td>
+</tr>
+<tr class="odd">
+<td align="left">4</td>
+<td align="left">Newtoniano</td>
+<td align="right">6.1</td>
+<td align="right">4.9</td>
+<td align="right">1</td>
+<td align="right">1.4</td>
+</tr>
+<tr class="even">
+<td align="left">5</td>
+<td align="left">Newtoniano</td>
+<td align="right">7.3</td>
+<td align="right">6.1</td>
+<td align="right">1</td>
+<td align="right">1.6</td>
+</tr>
+<tr class="odd">
+<td align="left">6</td>
+<td align="left">Newtoniano</td>
+<td align="right">8.3</td>
+<td align="right">7.1</td>
+<td align="right">1</td>
+<td align="right">1.9</td>
+</tr>
+<tr class="even">
+<td align="left">7</td>
+<td align="left">Newtoniano</td>
+<td align="right">9.4</td>
+<td align="right">8.2</td>
+<td align="right">1</td>
+<td align="right">2.2</td>
+</tr>
+<tr class="odd">
+<td align="left">8</td>
+<td align="left">Newtoniano</td>
+<td align="right">10.5</td>
+<td align="right">9.3</td>
+<td align="right">1</td>
+<td align="right">2.3</td>
+</tr>
+<tr class="even">
+<td align="left">9</td>
+<td align="left">Newtoniano</td>
+<td align="right">11.6</td>
+<td align="right">10.4</td>
+<td align="right">1</td>
+<td align="right">2.6</td>
+</tr>
+<tr class="odd">
+<td align="left">10</td>
+<td align="left">Newtoniano</td>
+<td align="right">12.7</td>
+<td align="right">11.4</td>
+<td align="right">1</td>
+<td align="right">2.9</td>
 </tr>
 </tbody>
 </table>
@@ -1929,6 +2084,7 @@ ponto}}{\text{velocidade média últimos 10mins}}
 <table>
 <thead>
 <tr class="header">
+<th align="left">Ordem do ponto</th>
 <th align="left">Modelo</th>
 <th align="right">RMSE</th>
 <th align="right">MAE</th>
@@ -1938,25 +2094,92 @@ ponto}}{\text{velocidade média últimos 10mins}}
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">Médias históricas</td>
-<td align="right">2.6</td>
-<td align="right">0.9</td>
-<td align="right">0.9</td>
-<td align="right">0.4</td>
+<td align="left">Total</td>
+<td align="left">Regressão simples</td>
+<td align="right">6.8</td>
+<td align="right">4.9</td>
+<td align="right">0.8</td>
+<td align="right">2.4</td>
 </tr>
 <tr class="even">
-<td align="left">Newtoniano</td>
-<td align="right">4.8</td>
-<td align="right">1.7</td>
-<td align="right">1.0</td>
+<td align="left">1</td>
+<td align="left">Regressão simples</td>
+<td align="right">2.3</td>
+<td align="right">1.4</td>
+<td align="right">1.6</td>
 <td align="right">0.5</td>
 </tr>
 <tr class="odd">
+<td align="left">2</td>
 <td align="left">Regressão simples</td>
-<td align="right">4.8</td>
+<td align="right">3.0</td>
 <td align="right">1.8</td>
-<td align="right">1.4</td>
-<td align="right">0.3</td>
+<td align="right">0.6</td>
+<td align="right">0.6</td>
+</tr>
+<tr class="even">
+<td align="left">3</td>
+<td align="left">Regressão simples</td>
+<td align="right">4.0</td>
+<td align="right">2.7</td>
+<td align="right">0.6</td>
+<td align="right">0.9</td>
+</tr>
+<tr class="odd">
+<td align="left">4</td>
+<td align="left">Regressão simples</td>
+<td align="right">4.9</td>
+<td align="right">3.6</td>
+<td align="right">0.6</td>
+<td align="right">1.2</td>
+</tr>
+<tr class="even">
+<td align="left">5</td>
+<td align="left">Regressão simples</td>
+<td align="right">5.9</td>
+<td align="right">4.5</td>
+<td align="right">0.7</td>
+<td align="right">1.5</td>
+</tr>
+<tr class="odd">
+<td align="left">6</td>
+<td align="left">Regressão simples</td>
+<td align="right">6.9</td>
+<td align="right">5.5</td>
+<td align="right">0.7</td>
+<td align="right">1.8</td>
+</tr>
+<tr class="even">
+<td align="left">7</td>
+<td align="left">Regressão simples</td>
+<td align="right">7.9</td>
+<td align="right">6.5</td>
+<td align="right">0.7</td>
+<td align="right">2.0</td>
+</tr>
+<tr class="odd">
+<td align="left">8</td>
+<td align="left">Regressão simples</td>
+<td align="right">8.9</td>
+<td align="right">7.4</td>
+<td align="right">0.8</td>
+<td align="right">2.3</td>
+</tr>
+<tr class="even">
+<td align="left">9</td>
+<td align="left">Regressão simples</td>
+<td align="right">9.9</td>
+<td align="right">8.5</td>
+<td align="right">0.8</td>
+<td align="right">2.5</td>
+</tr>
+<tr class="odd">
+<td align="left">10</td>
+<td align="left">Regressão simples</td>
+<td align="right">10.9</td>
+<td align="right">9.5</td>
+<td align="right">0.8</td>
+<td align="right">2.8</td>
 </tr>
 </tbody>
 </table>
@@ -1981,6 +2204,7 @@ ponto}}{\text{velocidade média últimos 10mins}}
 <table>
 <thead>
 <tr class="header">
+<th align="left">Ordem do ponto</th>
 <th align="left">Modelo</th>
 <th align="right">RMSE</th>
 <th align="right">MAE</th>
@@ -1990,32 +2214,92 @@ ponto}}{\text{velocidade média últimos 10mins}}
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">Médias históricas</td>
-<td align="right">2.6</td>
-<td align="right">0.9</td>
-<td align="right">0.9</td>
-<td align="right">0.4</td>
+<td align="left">Total</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">6.8</td>
+<td align="right">4.9</td>
+<td align="right">0.8</td>
+<td align="right">2.3</td>
 </tr>
 <tr class="even">
-<td align="left">Newtoniano</td>
-<td align="right">4.8</td>
+<td align="left">1</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">2.3</td>
+<td align="right">1.4</td>
 <td align="right">1.7</td>
-<td align="right">1.0</td>
 <td align="right">0.5</td>
 </tr>
 <tr class="odd">
-<td align="left">Regressão simples</td>
-<td align="right">4.8</td>
+<td align="left">2</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">3.0</td>
 <td align="right">1.8</td>
-<td align="right">1.4</td>
-<td align="right">0.3</td>
+<td align="right">0.7</td>
+<td align="right">0.6</td>
 </tr>
 <tr class="even">
+<td align="left">3</td>
 <td align="left">EF de serviço-ponto</td>
+<td align="right">4.0</td>
+<td align="right">2.7</td>
+<td align="right">0.6</td>
+<td align="right">0.9</td>
+</tr>
+<tr class="odd">
+<td align="left">4</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">4.9</td>
+<td align="right">3.6</td>
+<td align="right">0.6</td>
+<td align="right">1.2</td>
+</tr>
+<tr class="even">
+<td align="left">5</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">5.9</td>
 <td align="right">4.5</td>
-<td align="right">1.8</td>
+<td align="right">0.7</td>
 <td align="right">1.5</td>
-<td align="right">0.3</td>
+</tr>
+<tr class="odd">
+<td align="left">6</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">6.8</td>
+<td align="right">5.5</td>
+<td align="right">0.7</td>
+<td align="right">1.7</td>
+</tr>
+<tr class="even">
+<td align="left">7</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">7.8</td>
+<td align="right">6.5</td>
+<td align="right">0.7</td>
+<td align="right">2.0</td>
+</tr>
+<tr class="odd">
+<td align="left">8</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">8.8</td>
+<td align="right">7.4</td>
+<td align="right">0.8</td>
+<td align="right">2.2</td>
+</tr>
+<tr class="even">
+<td align="left">9</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">9.9</td>
+<td align="right">8.5</td>
+<td align="right">0.8</td>
+<td align="right">2.4</td>
+</tr>
+<tr class="odd">
+<td align="left">10</td>
+<td align="left">EF de serviço-ponto</td>
+<td align="right">10.9</td>
+<td align="right">9.4</td>
+<td align="right">0.8</td>
+<td align="right">2.7</td>
 </tr>
 </tbody>
 </table>
@@ -2038,9 +2322,18 @@ ponto}}{\text{velocidade média últimos 10mins}}
 
 <!-- rnb-html-begin eyJtZXRhZGF0YSI6eyJjbGFzc2VzIjpbImtuaXRfYXNpcyJdLCJzaXppbmdQb2xpY3kiOltdfX0= -->
 
-<table>
+<table style="width:100%;">
+<colgroup>
+<col width="22%" />
+<col width="49%" />
+<col width="7%" />
+<col width="6%" />
+<col width="7%" />
+<col width="6%" />
+</colgroup>
 <thead>
 <tr class="header">
+<th align="left">Ordem do ponto</th>
 <th align="left">Modelo</th>
 <th align="right">RMSE</th>
 <th align="right">MAE</th>
@@ -2050,39 +2343,92 @@ ponto}}{\text{velocidade média últimos 10mins}}
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left">Médias históricas</td>
-<td align="right">2.6</td>
-<td align="right">0.9</td>
-<td align="right">0.9</td>
-<td align="right">0.4</td>
+<td align="left">Total</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">6.8</td>
+<td align="right">4.9</td>
+<td align="right">0.8</td>
+<td align="right">2.3</td>
 </tr>
 <tr class="even">
-<td align="left">Newtoniano</td>
-<td align="right">4.8</td>
+<td align="left">1</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">2.3</td>
+<td align="right">1.5</td>
 <td align="right">1.7</td>
-<td align="right">1.0</td>
 <td align="right">0.5</td>
 </tr>
 <tr class="odd">
-<td align="left">Regressão simples</td>
-<td align="right">4.8</td>
+<td align="left">2</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">3.0</td>
 <td align="right">1.8</td>
-<td align="right">1.4</td>
-<td align="right">0.3</td>
+<td align="right">0.7</td>
+<td align="right">0.5</td>
 </tr>
 <tr class="even">
-<td align="left">EF de serviço-ponto</td>
-<td align="right">4.5</td>
-<td align="right">1.8</td>
-<td align="right">1.5</td>
-<td align="right">0.3</td>
+<td align="left">3</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">3.9</td>
+<td align="right">2.7</td>
+<td align="right">0.6</td>
+<td align="right">0.9</td>
 </tr>
 <tr class="odd">
+<td align="left">4</td>
 <td align="left">EF de serviço-ponto e ponto-hora</td>
-<td align="right">4.4</td>
+<td align="right">4.9</td>
+<td align="right">3.6</td>
+<td align="right">0.7</td>
+<td align="right">1.2</td>
+</tr>
+<tr class="even">
+<td align="left">5</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">5.9</td>
+<td align="right">4.5</td>
+<td align="right">0.7</td>
+<td align="right">1.4</td>
+</tr>
+<tr class="odd">
+<td align="left">6</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">6.8</td>
+<td align="right">5.5</td>
+<td align="right">0.7</td>
 <td align="right">1.7</td>
-<td align="right">1.6</td>
-<td align="right">0.3</td>
+</tr>
+<tr class="even">
+<td align="left">7</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">7.8</td>
+<td align="right">6.5</td>
+<td align="right">0.7</td>
+<td align="right">1.9</td>
+</tr>
+<tr class="odd">
+<td align="left">8</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">8.8</td>
+<td align="right">7.4</td>
+<td align="right">0.8</td>
+<td align="right">2.2</td>
+</tr>
+<tr class="even">
+<td align="left">9</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">9.9</td>
+<td align="right">8.5</td>
+<td align="right">0.8</td>
+<td align="right">2.4</td>
+</tr>
+<tr class="odd">
+<td align="left">10</td>
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">10.9</td>
+<td align="right">9.5</td>
+<td align="right">0.8</td>
+<td align="right">2.7</td>
 </tr>
 </tbody>
 </table>
@@ -2097,62 +2443,208 @@ ponto}}{\text{velocidade média últimos 10mins}}
 <h2>Random Forest</h2>
 <!-- rnb-text-end -->
 <!-- rnb-chunk-begin -->
-<!-- rnb-source-begin eyJkYXRhIjpbInRyYWluaW5nX2RhdGEgPC0gdHJhaW5pbmdfZGF0YSAlPiUiLCIgICAgbXV0YXRlKGFjcm9zcyhob3JhLCBhcy5udW1lcmljKSkgJT4lIiwiICAgIG11dGF0ZShhY3Jvc3MoZmxhZ190cmFqZXRvX2NvcnJldG8sIGFzLm51bWVyaWMpKSIsIiIsInRlc3RfZGF0YSA8LSB0ZXN0X2RhdGEgJT4lIiwiICAgIG11dGF0ZShhY3Jvc3MoaG9yYSwgYXMubnVtZXJpYykpICU+JSIsIiAgICBtdXRhdGUoYWNyb3NzKGZsYWdfdHJhamV0b19jb3JyZXRvLCBhcy5udW1lcmljKSkiLCIiLCJ0cmFpbmluZ19zdWJzZXQgPC0gdHJhaW5pbmdfZGF0YSAlPiUiLCIgICAgc2xpY2Vfc2FtcGxlKHByb3AgPSAwLjA1KSIsIiIsInkgPC0gdHJhaW5pbmdfc3Vic2V0ICU+JSIsIiAgICBzZWxlY3QoYXJyaXZhbF90aW1lKSAlPiUiLCIgICAgdW5saXN0KCkiLCIiLCJ4IDwtIHRyYWluaW5nX3N1YnNldCAlPiUiLCIgICAgc2VsZWN0KCIsIiAgICAgICAgZGlzdGFuY2lhX3BvbnRvLCBob3JhLCBsYXRpdHVkZSwgbG9uZ2l0dWRlLCBmbGFnX3RyYWpldG9fY29ycmV0bywiLCIgICAgICAgIHZlbG9jaWRhZGVfaW5zdGFudGFuZWEsIHZlbG9jaWRhZGVfZXN0aW1hZGFfMTBfbWluLCBkaXN0YW5jaWEsIiwiICAgICAgICBkaXN0X3RyYXZlbGVkX3NoYXBlLCBkaXN0X25leHRfc3RvcCIsIiAgICApICU+JSIsIiAgICBhcy5tYXRyaXgoKSIsIiIsInJmIDwtIHJhbmRvbUZvcmVzdCgiLCIgICAgeCA9IHgsIHkgPSB5LCIsIiAgICBwcm94aW1pdHkgPSBGQUxTRSwiLCIgICAga2VlcC5mb3Jlc3QgPSBUUlVFLCIsIiAgICBpbXBvcnRhbmNlID0gVFJVRSwiLCIgICAgZG8udHJhY2UgPSBUUlVFLCIsIiAgICBudHJlZSA9IDIwIiwiKSIsIiIsInhfdGVzdCA8LSB0ZXN0X2RhdGEgJT4lIiwiICAgIHNlbGVjdCgiLCIgICAgICAgIGRpc3RhbmNpYV9wb250bywgaG9yYSwgbGF0aXR1ZGUsIGxvbmdpdHVkZSwgZmxhZ190cmFqZXRvX2NvcnJldG8sIiwiICAgICAgICB2ZWxvY2lkYWRlX2luc3RhbnRhbmVhLCB2ZWxvY2lkYWRlX2VzdGltYWRhXzEwX21pbiwgZGlzdGFuY2lhLCIsIiAgICAgICAgZGlzdF90cmF2ZWxlZF9zaGFwZSwgZGlzdF9uZXh0X3N0b3AiLCIgICAgKSIsIiIsInJmIDwtIHRlc3RfZGF0YSAlPiUiLCIgICAgYmluZF9jb2xzKFwiZXN0X2Fycml2YWxfdGltZVwiID0gcHJlZGljdChyZiwgdGVzdF9kYXRhICU+JSIsIiAgICBzZWxlY3QobGF0aXR1ZGUsIGxvbmdpdHVkZSwgdmVsb2NpZGFkZV9lc3RpbWFkYV8xMF9taW4pKSkgJT4lIiwiICAgIHByZWRpY3Rpb25fZXJyb3JzKFwiUmFuZG9tIEZvcmVzdFwiKSIsIiIsIm1vZGVscyA8LSBtb2RlbHMgJT4lIiwiICAgIGJpbmRfcm93cyhyZikiLCIiLCJrYWJsZShtb2RlbHMsIGRpZ2l0cyA9IDEpIl19 -->
-<pre class="r"><code>training_data &lt;- training_data %&gt;%
-    mutate(across(hora, as.numeric)) %&gt;%
-    mutate(across(flag_trajeto_correto, as.numeric))
 
-test_data &lt;- test_data %&gt;%
-    mutate(across(hora, as.numeric)) %&gt;%
-    mutate(across(flag_trajeto_correto, as.numeric))
+<!-- rnb-html-begin eyJtZXRhZGF0YSI6eyJjbGFzc2VzIjpbImtuaXRfYXNpcyJdLCJzaXppbmdQb2xpY3kiOltdfX0= -->
 
-training_subset &lt;- training_data %&gt;%
-    slice_sample(prop = 0.05)
+<table>
+<thead>
+<tr class="header">
+<th align="left">Ordem do ponto</th>
+<th align="left">Modelo</th>
+<th align="right">RMSE</th>
+<th align="right">MAE</th>
+<th align="right">MAPE</th>
+<th align="right">MAD</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Total</td>
+<td align="left">Random Forest</td>
+<td align="right">3.1</td>
+<td align="right">2.0</td>
+<td align="right">0.6</td>
+<td align="right">1.1</td>
+</tr>
+<tr class="even">
+<td align="left">1</td>
+<td align="left">Random Forest</td>
+<td align="right">1.5</td>
+<td align="right">1.2</td>
+<td align="right">1.8</td>
+<td align="right">0.3</td>
+</tr>
+<tr class="odd">
+<td align="left">2</td>
+<td align="left">Random Forest</td>
+<td align="right">1.7</td>
+<td align="right">1.1</td>
+<td align="right">0.7</td>
+<td align="right">0.6</td>
+</tr>
+<tr class="even">
+<td align="left">3</td>
+<td align="left">Random Forest</td>
+<td align="right">2.1</td>
+<td align="right">1.4</td>
+<td align="right">0.5</td>
+<td align="right">0.8</td>
+</tr>
+<tr class="odd">
+<td align="left">4</td>
+<td align="left">Random Forest</td>
+<td align="right">2.5</td>
+<td align="right">1.6</td>
+<td align="right">0.4</td>
+<td align="right">1.0</td>
+</tr>
+<tr class="even">
+<td align="left">5</td>
+<td align="left">Random Forest</td>
+<td align="right">2.9</td>
+<td align="right">1.9</td>
+<td align="right">0.4</td>
+<td align="right">1.3</td>
+</tr>
+<tr class="odd">
+<td align="left">6</td>
+<td align="left">Random Forest</td>
+<td align="right">3.2</td>
+<td align="right">2.3</td>
+<td align="right">0.4</td>
+<td align="right">1.5</td>
+</tr>
+<tr class="even">
+<td align="left">7</td>
+<td align="left">Random Forest</td>
+<td align="right">3.5</td>
+<td align="right">2.4</td>
+<td align="right">0.4</td>
+<td align="right">1.7</td>
+</tr>
+<tr class="odd">
+<td align="left">8</td>
+<td align="left">Random Forest</td>
+<td align="right">3.9</td>
+<td align="right">2.6</td>
+<td align="right">0.4</td>
+<td align="right">1.9</td>
+</tr>
+<tr class="even">
+<td align="left">9</td>
+<td align="left">Random Forest</td>
+<td align="right">4.2</td>
+<td align="right">2.9</td>
+<td align="right">0.3</td>
+<td align="right">2.1</td>
+</tr>
+<tr class="odd">
+<td align="left">10</td>
+<td align="left">Random Forest</td>
+<td align="right">4.6</td>
+<td align="right">3.2</td>
+<td align="right">0.3</td>
+<td align="right">2.3</td>
+</tr>
+</tbody>
+</table>
 
-y &lt;- training_subset %&gt;%
-    select(arrival_time) %&gt;%
-    unlist()
 
-x &lt;- training_subset %&gt;%
-    select(
-        distancia_ponto, hora, latitude, longitude, flag_trajeto_correto,
-        velocidade_instantanea, velocidade_estimada_10_min, distancia,
-        dist_traveled_shape, dist_next_stop
-    ) %&gt;%
-    as.matrix()
+<!-- rnb-html-end -->
 
-rf &lt;- randomForest(
-    x = x, y = y,
-    proximity = FALSE,
-    keep.forest = TRUE,
-    importance = TRUE,
-    do.trace = TRUE,
-    ntree = 20
-)
-
-x_test &lt;- test_data %&gt;%
-    select(
-        distancia_ponto, hora, latitude, longitude, flag_trajeto_correto,
-        velocidade_instantanea, velocidade_estimada_10_min, distancia,
-        dist_traveled_shape, dist_next_stop
-    )
-
-rf &lt;- test_data %&gt;%
-    bind_cols(&quot;est_arrival_time&quot; = predict(rf, test_data %&gt;%
-    select(latitude, longitude, velocidade_estimada_10_min))) %&gt;%
-    prediction_errors(&quot;Random Forest&quot;)
-
-models &lt;- models %&gt;%
-    bind_rows(rf)
-
-kable(models, digits = 1)</code></pre>
+<!-- rnb-chunk-end -->
+<!-- rnb-text-begin -->
+</div>
+<div id="comparativo" class="section level2">
+<h2>Comparativo</h2>
+<!-- rnb-text-end -->
+<!-- rnb-chunk-begin -->
+<!-- rnb-source-begin eyJkYXRhIjoiYGBgclxua2FibGUobW9kZWxzLCBkaWdpdHMgPSAxKVxuYGBgIn0= -->
+<pre class="r"><code>kable(models, digits = 1)</code></pre>
 <!-- rnb-source-end -->
+
+<!-- rnb-html-begin eyJtZXRhZGF0YSI6eyJjbGFzc2VzIjpbImtuaXRfYXNpcyJdLCJzaXppbmdQb2xpY3kiOltdfX0= -->
+
+<table style="width:100%;">
+<colgroup>
+<col width="49%" />
+<col width="7%" />
+<col width="6%" />
+<col width="7%" />
+<col width="6%" />
+<col width="22%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Modelo</th>
+<th align="right">RMSE</th>
+<th align="right">MAE</th>
+<th align="right">MAPE</th>
+<th align="right">MAD</th>
+<th align="left">Ordem do ponto</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Médias históricas</td>
+<td align="right">2.6</td>
+<td align="right">1.6</td>
+<td align="right">0.3</td>
+<td align="right">0.9</td>
+<td align="left">Total</td>
+</tr>
+<tr class="even">
+<td align="left">Newtoniano</td>
+<td align="right">8.1</td>
+<td align="right">6.3</td>
+<td align="right">1.0</td>
+<td align="right">2.9</td>
+<td align="left">Total</td>
+</tr>
+<tr class="odd">
+<td align="left">Regressão simples</td>
+<td align="right">6.8</td>
+<td align="right">4.9</td>
+<td align="right">0.8</td>
+<td align="right">2.4</td>
+<td align="left">Total</td>
+</tr>
+<tr class="even">
+<td align="left">EF de serviço-ponto</td>
+<td align="right">6.8</td>
+<td align="right">4.9</td>
+<td align="right">0.8</td>
+<td align="right">2.3</td>
+<td align="left">Total</td>
+</tr>
+<tr class="odd">
+<td align="left">EF de serviço-ponto e ponto-hora</td>
+<td align="right">6.8</td>
+<td align="right">4.9</td>
+<td align="right">0.8</td>
+<td align="right">2.3</td>
+<td align="left">Total</td>
+</tr>
+<tr class="even">
+<td align="left">Random Forest</td>
+<td align="right">3.1</td>
+<td align="right">2.0</td>
+<td align="right">0.6</td>
+<td align="right">1.1</td>
+<td align="left">Total</td>
+</tr>
+</tbody>
+</table>
+
+
+<!-- rnb-html-end -->
+
 <!-- rnb-chunk-end -->
 <!-- rnb-text-begin -->
 <!-- rnb-text-end -->
 </div>
 
-<div id="rmd-source-code">LS0tDQp0aXRsZTogIlIgTm90ZWJvb2siDQpvdXRwdXQ6IGh0bWxfbm90ZWJvb2sNCi0tLQ0KDQpgYGB7ciwgbWVzc2FnZSA9IEZBTFNFLCB3YXJuaW5nID0gRkFMU0V9DQpsaWJyYXJ5KGJhc2Vkb3NkYWRvcykNCmxpYnJhcnkoZHBseXIpDQpsaWJyYXJ5KGdncGxvdDIpDQpsaWJyYXJ5KGtuaXRyKQ0KbGlicmFyeShmaXhlc3QpDQpsaWJyYXJ5KGRhdGEudGFibGUpDQpsaWJyYXJ5KHJhbmRvbUZvcmVzdCkNCg0KIyBwcm9qZXRvIGdvb2dsZSBjbG91ZA0Kc2V0X2JpbGxpbmdfaWQoImFic29sdXRlLXRleHQtNDE3OTE5IikgDQoNCiMgY2FtaW5obyBwYXJhIG9zIGRhZG9zIG1haXMgcGVzYWRvcw0Kc291cmNlIDwtICJGOi9EYWRvcy9TTVRSIg0KYGBgDQoNCkxlbmRvIG9zIGRhZG9zOiBiYXNlIGRlIHRyZWlubywgZGUgMDQvMDMvMjAyNCBhIDA4LzAzLzIwMjQgKGRpYXMgZGUgc2VtYW5hKSwgZSBiYXNlIGRlIHRlc3RlLCBkZSAxMS8wMy8yMDI0IGEgMTIvMDQvMjAyNC4gVGlybyBvdXRsaWVycyBjb20gdGVtcG8gZGUgY2hlZ2FkYSBhY2ltYSBkZSAxaCBlIGRpc3TDom5jaWEgYW8gcHLDs3hpbW8gcG9udG8gYWNpbWEgZGUgMWttLg0KDQpgYGB7ciwgbWVzc2FnZSA9IEZBTFNFfQ0KdHJhaW5pbmdfZGF0YSA8LSBmcmVhZChmaWxlLnBhdGgoc291cmNlLCAiZ3BzX3RyYWluaW5nX3Byb2ouY3N2IikpDQoNCnRlc3RfZGF0YSA8LSBmcmVhZChmaWxlLnBhdGgoc291cmNlLCAiZ3BzX3Rlc3RfcHJvai5jc3YiKSkNCmBgYA0KDQojIyBNZWRpZGFzIGRlIGVycm8NCg0KKiBFcnJvIHF1YWRyw6F0aWNvIG3DqWRpbw0KDQpcWw0KXG1hdGhybXtNU0V9ID0gXGZyYWN7MX17bn1cc3VtX2kgXGJpZyh5X2kgLSBcd2lkZWhhdHt5fV9pXGJpZyleMiwgXHF1YWQgXG1hdGhybXtSTVNFfSA9IFxzcXJ0e1xtYXRocm17TVNFfX0uDQpcXQ0KDQoqIEVycm8gYWJzb2x1dG8gbcOpZGlvDQoNClxbDQpcbWF0aHJte01BRX0gPSBcZnJhY3sxfXtufVxzdW1faSBcYmlnXGx2ZXJ0IHlfaSAtIFx3aWRlaGF0e3l9X2lcYmlnXHJ2ZXJ0Lg0KXF0NCg0KKiBFcnJvIEFic29sdXRvIFBlcmNlbnR1YWwgTcOpZGlvDQoNClxbDQpcbWF0aHJte01BUEV9ID0gXGZyYWN7MX17bn1cc3VtX2kgXGZyYWN7XGx2ZXJ0IHlfaSAtIFx3aWRlaGF0e3l9X2lccnZlcnR9e3lfaX0uDQpcXQ0KDQoqIERlc3ZpbyBhYnNvbHV0byBtZWRpYW5vDQoNClxbDQpcbWF0aHJte01BRH0gPSBcbWF0aHJte21lZGlhbn1cQmlnKFxiaWdcbHZlcnQgZV9pIC0gXG1hdGhybXttZWRpYW59KGVfaSlcYmlnXHJ2ZXJ0XEJpZyksIFxxdWFkXHRleHR7b25kZSAkZV9pID0geV9pIC0gXHdpZGVoYXR7eX1faSR9Lg0KXF0NCg0KIyMgQmVuY2htYXJrOiBtw6lkaWFzIGRlIGNoZWdhZGEgZGUgY2FkYSBsaW5oYQ0KDQpcWw0KXHdpZGVoYXR7eX1faSA9IFx0ZXh0e23DqWRpYSBkZSB0ZW1wb3MgZGUgY2hlZ2FkYSBkbyBzZXJ2acOnbyBhbyBwb250b30NClxdDQoNCmBgYHtyLCBlY2hvID0gRkFMU0V9DQojIHNldHVwIGRhIHRhYmVsYSBxdWUgYXJtYXplbmEgb3MgcmVzdWx0YWRvcw0KDQptb2RlbHMgPC0gZGF0YS5mcmFtZSgNCiAgICAiTW9kZWxvIiA9IGNoYXJhY3RlcigpLCAiUk1TRSIgPSBkb3VibGUoKSwgIk1BRSIgPSBkb3VibGUoKSwgIk1BUEUiID0gZG91YmxlKCksICJNQUQiID0gZG91YmxlKCkNCikNCg0KIyBmdW7Dp8OjbyBxdWUgcHJvZHV6IG1lZGlkYXMgZGUgZXJybw0KDQpwcmVkaWN0aW9uX2Vycm9ycyA8LSBmdW5jdGlvbihkZiwgbW9kZWxvKSB7DQogICAgZGYgJT4lDQogICAgICAgIG11dGF0ZShlcnJvciA9IGFycml2YWxfdGltZSAtIGVzdF9hcnJpdmFsX3RpbWUpICU+JQ0KICAgICAgICBzdW1tYXJpc2UoDQogICAgICAgICAgICBNb2RlbG8gPSBtb2RlbG8sDQogICAgICAgICAgICBSTVNFID0gc3FydChtZWFuKGVycm9yXjIsIG5hLnJtID0gVFJVRSkpLA0KICAgICAgICAgICAgTUFFID0gbWVhbihhYnMoZXJyb3IpLCBuYS5ybSA9IFRSVUUpLA0KICAgICAgICAgICAgTUFQRSA9IG1lYW4oYWJzKGVycm9yKS9hcnJpdmFsX3RpbWUsIG5hLnJtID0gVFJVRSksDQogICAgICAgICAgICBNQUQgPSBtZWRpYW4oYWJzKGVycm9yIC0gbWVkaWFuKGVycm9yLCBuYS5ybSA9IFRSVUUpKSwgbmEucm0gPSBUUlVFKQ0KICAgICAgICApDQp9DQpgYGANCg0KDQpgYGB7ciwgZWNobyA9IEZBTFNFfQ0KYmVuY2ggPC0gdHJhaW5pbmdfZGF0YSAlPiUNCiAgICBzdW1tYXJpc2UoDQogICAgICAgIGVzdF9hcnJpdmFsX3RpbWUgPSBtZWFuKGFycml2YWxfdGltZSwgbmEucm0gPSBUUlVFKSwNCiAgICAgICAgLmJ5ID0gYygic2VydmljbyIsICJuZXh0X3N0b3BfaWQiKQ0KICAgICkNCg0KYmVuY2ggPC0gdGVzdF9kYXRhICU+JQ0KICAgIGxlZnRfam9pbihiZW5jaCwgYnkgPSBjKCJzZXJ2aWNvIiwgIm5leHRfc3RvcF9pZCIpKQ0KDQpiZW5jaCA8LSBwcmVkaWN0aW9uX2Vycm9ycyhiZW5jaCwgIk3DqWRpYXMgaGlzdMOzcmljYXMiKQ0KDQptb2RlbHMgPC0gbW9kZWxzICU+JQ0KICAgIGJpbmRfcm93cyhiZW5jaCkNCg0Ka2FibGUobW9kZWxzLCBkaWdpdHMgPSAxKQ0KYGBgDQoNCg0KIyMgTW9kZWxvIE5ld3Rvbmlhbm8NCg0KXFsNClx3aWRlaGF0e3l9X2kgPSBcZnJhY3tcdGV4dHtkaXN0w6JuY2lhIGF0w6kgbyBwcsOzeC4gcG9udG99fXtcdGV4dHt2ZWxvY2lkYWRlIG3DqWRpYSDDumx0aW1vcyAxMG1pbnN9fQ0KXF0NCg0KYGBge3IsIGVjaG8gPSBGQUxTRX0NCm5ld3RvbiA8LSB0ZXN0X2RhdGEgJT4lDQogICAgbXV0YXRlKA0KICAgICAgICBlc3RfYXJyaXZhbF90aW1lID0gMS8xMDAwICogZGlzdF9uZXh0X3N0b3AvdmVsb2NpZGFkZV9lc3RpbWFkYV8xMF9taW4NCiAgICApDQoNCm5ld3RvbiA8LSBwcmVkaWN0aW9uX2Vycm9ycyhuZXd0b24sICJOZXd0b25pYW5vIikNCg0KbW9kZWxzIDwtIG1vZGVscyAlPiUNCiAgICBiaW5kX3Jvd3MobmV3dG9uKQ0KDQprYWJsZShtb2RlbHMsIGRpZ2l0cyA9IDEpDQpgYGANCg0KIyMgUmVncmVzc8OjbyBsaW5lYXINCg0KXFsNClxsb2coXHdpZGVoYXR7eX1faSkgPSBcYWxwaGEgKyBcYmV0YVwsXGxvZyhcdGV4dHtkaXN0w6JuY2lhfSkgKyBcZ2FtbWFcLFxsb2codl9cdGV4dHsxMG1pbnN9KSArIFxkZWx0YVwsIFxsb2codl9cdGV4dHtpbnN0fSArIDEpDQpcXQ0KDQpgYGB7ciwgZWNobyA9IEZBTFNFfQ0KcmVnX25ld3RvbiA8LSBsbSgNCiAgICBsb2coYXJyaXZhbF90aW1lKSB+IGxvZyhkaXN0X25leHRfc3RvcCkgKyBsb2codmVsb2NpZGFkZV9lc3RpbWFkYV8xMF9taW4pIA0KICAgICsgbG9nKHZlbG9jaWRhZGVfaW5zdGFudGFuZWEgKyAxKSwNCiAgICBkYXRhID0gdHJhaW5pbmdfZGF0YQ0KKQ0KDQpyZWdfbmV3dG9uIDwtIHRlc3RfZGF0YSAlPiUNCiAgICBiaW5kX2NvbHMoImVzdF9hcnJpdmFsX3RpbWUiID0gcHJlZGljdChyZWdfbmV3dG9uLCB0ZXN0X2RhdGEpKSAlPiUNCiAgICBtdXRhdGUoZXJyb3IgPSAoYXJyaXZhbF90aW1lIC0gZXN0X2Fycml2YWxfdGltZSkpICU+JQ0KICAgIHByZWRpY3Rpb25fZXJyb3JzKCJSZWdyZXNzw6NvIHNpbXBsZXMiKQ0KDQptb2RlbHMgPC0gbW9kZWxzICU+JQ0KICAgIGJpbmRfcm93cyhyZWdfbmV3dG9uKQ0KDQprYWJsZShtb2RlbHMsIGRpZ2l0cyA9IDEpDQpgYGANCg0KIyMgUmVncmVzc8OjbyBjb20gRWZlaXRvcyBGaXhvcw0KDQpcWw0KXGxvZyhcd2lkZWhhdHt5fV9pKSA9IFxhbHBoYV97XHRleHR7c2VydmnDp28sIHBvbnRvfX0gKyBcYmV0YVwsXGxvZyhcdGV4dHtkaXN0w6JuY2lhfSkgKyBcZ2FtbWFcLFxsb2coXHRleHR7dmVsb2NpZGFkZSAxMG1pbnN9KQ0KXF0NCg0KYGBge3IsIGVjaG8gPSBGQUxTRX0NCnRyYWluaW5nX2RhdGEgPC0gdHJhaW5pbmdfZGF0YSAlPiUNCiAgICBtdXRhdGUoaG9yYSA9IHN0cmluZ3I6OnN0cl9zcGxpdChob3JhLCAiOiIsIHNpbXBsaWZ5ID0gVFJVRSkgJT4lIHsuWywxXX0pDQoNCnRlc3RfZGF0YSA8LSB0ZXN0X2RhdGEgJT4lDQogICAgbXV0YXRlKGhvcmEgPSBzdHJpbmdyOjpzdHJfc3BsaXQoaG9yYSwgIjoiLCBzaW1wbGlmeSA9IFRSVUUpICU+JSB7LlssMV19KQ0KDQojIEVzdGltYW5kbw0KDQpmZV9yZWcgPC0gZmVvbHMoDQogICAgbG9nKGFycml2YWxfdGltZSkgfiBsb2coZGlzdF9uZXh0X3N0b3ApICsgbG9nKHZlbG9jaWRhZGVfZXN0aW1hZGFfMTBfbWluKSANCiAgICArIGxvZyh2ZWxvY2lkYWRlX2luc3RhbnRhbmVhICsgMSkgfCBzZXJ2aWNvXm5leHRfc3RvcF9pZCwNCiAgICBkYXRhID0gdHJhaW5pbmdfZGF0YSwNCiAgICBjb21iaW5lLnF1aWNrID0gRkFMU0UNCikNCg0KIyBDYWxjdWxhbmRvIHBlcmZvcm1hbmNlDQoNCmZlX3JlZyA8LSB0ZXN0X2RhdGEgJT4lDQogICAgYmluZF9jb2xzKCJlc3RfYXJyaXZhbF90aW1lIiA9IHByZWRpY3QoZmVfcmVnLCB0ZXN0X2RhdGEpKSAlPiUNCiAgICBwcmVkaWN0aW9uX2Vycm9ycygiRUYgZGUgc2VydmnDp28tcG9udG8iKQ0KDQptb2RlbHMgPC0gbW9kZWxzICU+JQ0KICAgIGJpbmRfcm93cyhmZV9yZWcpDQoNCmthYmxlKG1vZGVscywgZGlnaXRzID0gMSkNCmBgYA0KDQojIyBSZWdyZXNzw6NvIGNvbSBFZmVpdG9zIEZpeG9zIGluY2x1aW5kbyBob3LDoXJpb3MNCg0KXFsNClxsb2coXHdpZGVoYXR7eX1faSkgPSBcYWxwaGFfe1x0ZXh0e3NlcnZpw6dvLCBwb250b319ICsgXGFscGhhX3tcdGV4dHtob3JhLCBwb250b319ICsgXGJldGFcLFxsb2coXHRleHR7ZGlzdMOibmNpYX0pICsgXGdhbW1hXCxcbG9nKFx0ZXh0e3ZlbG9jaWRhZGUgMTBtaW5zfSkNClxdDQoNCmBgYHtyLCBlY2hvID0gRkFMU0V9DQojIEVzdGltYW5kbw0KDQpmZV9yZWdfaG9yYSA8LSBmZW9scygNCiAgICBsb2coYXJyaXZhbF90aW1lKSB+IGxvZyhkaXN0X25leHRfc3RvcCkgKyBsb2codmVsb2NpZGFkZV9lc3RpbWFkYV8xMF9taW4pDQogICAgKyBsb2codmVsb2NpZGFkZV9pbnN0YW50YW5lYSArIDEpIHwgc2Vydmljb15uZXh0X3N0b3BfaWQgKyBuZXh0X3N0b3BfaWReaG9yYSwNCiAgICBkYXRhID0gdHJhaW5pbmdfZGF0YSwNCiAgICBjb21iaW5lLnF1aWNrID0gRkFMU0UNCikNCg0KIyBDYWxjdWxhbmRvIHBlcmZvcm1hbmNlDQoNCmZlX3JlZ19ob3JhIDwtIHRlc3RfZGF0YSAlPiUNCiAgICBiaW5kX2NvbHMoImVzdF9hcnJpdmFsX3RpbWUiID0gcHJlZGljdChmZV9yZWdfaG9yYSwgdGVzdF9kYXRhKSkgJT4lDQogICAgcHJlZGljdGlvbl9lcnJvcnMoIkVGIGRlIHNlcnZpw6dvLXBvbnRvIGUgcG9udG8taG9yYSIpDQoNCm1vZGVscyA8LSBtb2RlbHMgJT4lDQogICAgYmluZF9yb3dzKGZlX3JlZ19ob3JhKQ0KDQprYWJsZShtb2RlbHMsIGRpZ2l0cyA9IDEpDQpgYGANCg0KIyMgUmFuZG9tIEZvcmVzdA0KDQpgYGB7ciwgZXZhbCA9IEZBTFNFfQ0KdHJhaW5pbmdfZGF0YSA8LSB0cmFpbmluZ19kYXRhICU+JQ0KICAgIG11dGF0ZShhY3Jvc3MoaG9yYSwgYXMubnVtZXJpYykpICU+JQ0KICAgIG11dGF0ZShhY3Jvc3MoZmxhZ190cmFqZXRvX2NvcnJldG8sIGFzLm51bWVyaWMpKQ0KDQp0ZXN0X2RhdGEgPC0gdGVzdF9kYXRhICU+JQ0KICAgIG11dGF0ZShhY3Jvc3MoaG9yYSwgYXMubnVtZXJpYykpICU+JQ0KICAgIG11dGF0ZShhY3Jvc3MoZmxhZ190cmFqZXRvX2NvcnJldG8sIGFzLm51bWVyaWMpKQ0KDQp0cmFpbmluZ19zdWJzZXQgPC0gdHJhaW5pbmdfZGF0YSAlPiUNCiAgICBzbGljZV9zYW1wbGUocHJvcCA9IDAuMDUpDQoNCnkgPC0gdHJhaW5pbmdfc3Vic2V0ICU+JQ0KICAgIHNlbGVjdChhcnJpdmFsX3RpbWUpICU+JQ0KICAgIHVubGlzdCgpDQoNCnggPC0gdHJhaW5pbmdfc3Vic2V0ICU+JQ0KICAgIHNlbGVjdCgNCiAgICAgICAgZGlzdGFuY2lhX3BvbnRvLCBob3JhLCBsYXRpdHVkZSwgbG9uZ2l0dWRlLCBmbGFnX3RyYWpldG9fY29ycmV0bywNCiAgICAgICAgdmVsb2NpZGFkZV9pbnN0YW50YW5lYSwgdmVsb2NpZGFkZV9lc3RpbWFkYV8xMF9taW4sIGRpc3RhbmNpYSwNCiAgICAgICAgZGlzdF90cmF2ZWxlZF9zaGFwZSwgZGlzdF9uZXh0X3N0b3ANCiAgICApICU+JQ0KICAgIGFzLm1hdHJpeCgpDQoNCnJmIDwtIHJhbmRvbUZvcmVzdCgNCiAgICB4ID0geCwgeSA9IHksDQogICAgcHJveGltaXR5ID0gRkFMU0UsDQogICAga2VlcC5mb3Jlc3QgPSBUUlVFLA0KICAgIGltcG9ydGFuY2UgPSBUUlVFLA0KICAgIGRvLnRyYWNlID0gVFJVRSwNCiAgICBudHJlZSA9IDIwDQopDQoNCnhfdGVzdCA8LSB0ZXN0X2RhdGEgJT4lDQogICAgc2VsZWN0KA0KICAgICAgICBkaXN0YW5jaWFfcG9udG8sIGhvcmEsIGxhdGl0dWRlLCBsb25naXR1ZGUsIGZsYWdfdHJhamV0b19jb3JyZXRvLA0KICAgICAgICB2ZWxvY2lkYWRlX2luc3RhbnRhbmVhLCB2ZWxvY2lkYWRlX2VzdGltYWRhXzEwX21pbiwgZGlzdGFuY2lhLA0KICAgICAgICBkaXN0X3RyYXZlbGVkX3NoYXBlLCBkaXN0X25leHRfc3RvcA0KICAgICkNCg0KcmYgPC0gdGVzdF9kYXRhICU+JQ0KICAgIGJpbmRfY29scygiZXN0X2Fycml2YWxfdGltZSIgPSBwcmVkaWN0KHJmLCB0ZXN0X2RhdGEgJT4lDQogICAgc2VsZWN0KGxhdGl0dWRlLCBsb25naXR1ZGUsIHZlbG9jaWRhZGVfZXN0aW1hZGFfMTBfbWluKSkpICU+JQ0KICAgIHByZWRpY3Rpb25fZXJyb3JzKCJSYW5kb20gRm9yZXN0IikNCg0KbW9kZWxzIDwtIG1vZGVscyAlPiUNCiAgICBiaW5kX3Jvd3MocmYpDQoNCmthYmxlKG1vZGVscywgZGlnaXRzID0gMSkNCmBgYA0KDQo=</div>
+<div id="rmd-source-code">LS0tDQp0aXRsZTogIlIgTm90ZWJvb2siDQpvdXRwdXQ6IGh0bWxfbm90ZWJvb2sNCi0tLQ0KDQpgYGB7ciwgbWVzc2FnZSA9IEZBTFNFLCB3YXJuaW5nID0gRkFMU0V9DQpsaWJyYXJ5KGJhc2Vkb3NkYWRvcykNCmxpYnJhcnkoZHBseXIpDQpsaWJyYXJ5KGdncGxvdDIpDQpsaWJyYXJ5KGtuaXRyKQ0KbGlicmFyeShmaXhlc3QpDQpsaWJyYXJ5KGRhdGEudGFibGUpDQpsaWJyYXJ5KHJhbmRvbUZvcmVzdCkNCg0KIyBwcm9qZXRvIGdvb2dsZSBjbG91ZA0Kc2V0X2JpbGxpbmdfaWQoImFic29sdXRlLXRleHQtNDE3OTE5IikgDQoNCiMgY2FtaW5obyBwYXJhIG9zIGRhZG9zIG1haXMgcGVzYWRvcw0Kc291cmNlIDwtICJGOi9EYWRvcy9TTVRSIg0KYGBgDQoNCkxlbmRvIG9zIGRhZG9zOiBiYXNlIGRlIHRyZWlubywgZGUgMDQvMDMvMjAyNCBhIDA4LzAzLzIwMjQgKGRpYXMgZGUgc2VtYW5hKSwgZSBiYXNlIGRlIHRlc3RlLCBkZSAxMS8wMy8yMDI0IGEgMTIvMDQvMjAyNC4gVGlybyBvdXRsaWVycyBjb20gdGVtcG8gZGUgY2hlZ2FkYSBhY2ltYSBkZSAxaCBlIGRpc3TDom5jaWEgYW8gcHLDs3hpbW8gcG9udG8gYWNpbWEgZGUgMWttLg0KDQpgYGB7ciwgbWVzc2FnZSA9IEZBTFNFfQ0KdHJhaW5pbmdfZGF0YSA8LSBmcmVhZChmaWxlLnBhdGgoc291cmNlLCAiZ3BzX3RyYWluaW5nXzFfMTAuY3N2IikpDQoNCnRlc3RfZGF0YSA8LSBmcmVhZChmaWxlLnBhdGgoc291cmNlLCAiZ3BzX3Rlc3RfMV8xMC5jc3YiKSkNCmBgYA0KDQojIyBNZWRpZGFzIGRlIGVycm8NCg0KKiBFcnJvIHF1YWRyw6F0aWNvIG3DqWRpbw0KDQpcWw0KXG1hdGhybXtNU0V9ID0gXGZyYWN7MX17bn1cc3VtX2kgXGJpZyh5X2kgLSBcd2lkZWhhdHt5fV9pXGJpZyleMiwgXHF1YWQgXG1hdGhybXtSTVNFfSA9IFxzcXJ0e1xtYXRocm17TVNFfX0uDQpcXQ0KDQoqIEVycm8gYWJzb2x1dG8gbcOpZGlvDQoNClxbDQpcbWF0aHJte01BRX0gPSBcZnJhY3sxfXtufVxzdW1faSBcYmlnXGx2ZXJ0IHlfaSAtIFx3aWRlaGF0e3l9X2lcYmlnXHJ2ZXJ0Lg0KXF0NCg0KKiBFcnJvIEFic29sdXRvIFBlcmNlbnR1YWwgTcOpZGlvDQoNClxbDQpcbWF0aHJte01BUEV9ID0gXGZyYWN7MX17bn1cc3VtX2kgXGZyYWN7XGx2ZXJ0IHlfaSAtIFx3aWRlaGF0e3l9X2lccnZlcnR9e3lfaX0uDQpcXQ0KDQoqIERlc3ZpbyBhYnNvbHV0byBtZWRpYW5vDQoNClxbDQpcbWF0aHJte01BRH0gPSBcbWF0aHJte21lZGlhbn1cQmlnKFxiaWdcbHZlcnQgZV9pIC0gXG1hdGhybXttZWRpYW59KGVfaSlcYmlnXHJ2ZXJ0XEJpZyksIFxxdWFkXHRleHR7b25kZSAkZV9pID0geV9pIC0gXHdpZGVoYXR7eX1faSR9Lg0KXF0NCg0KIyMgQmVuY2htYXJrOiBtw6lkaWFzIGRlIGNoZWdhZGEgZGUgY2FkYSBsaW5oYQ0KDQpcWw0KXHdpZGVoYXR7eX1faSA9IFx0ZXh0e23DqWRpYSBkZSB0ZW1wb3MgZGUgY2hlZ2FkYSBkbyBzZXJ2acOnbyBhbyBwb250b30NClxdDQoNCmBgYHtyLCBlY2hvID0gRkFMU0V9DQojIHNldHVwIGRhIHRhYmVsYSBxdWUgYXJtYXplbmEgb3MgcmVzdWx0YWRvcw0KDQptb2RlbHMgPC0gZGF0YS5mcmFtZSgNCiAgICAiTW9kZWxvIiA9IGNoYXJhY3RlcigpLCAiUk1TRSIgPSBkb3VibGUoKSwgIk1BRSIgPSBkb3VibGUoKSwgIk1BUEUiID0gZG91YmxlKCksICJNQUQiID0gZG91YmxlKCkNCikNCg0KIyBmdW7Dp8OjbyBxdWUgcHJvZHV6IG1lZGlkYXMgZGUgZXJybw0KDQpwcmVkaWN0aW9uX2Vycm9ycyA8LSBmdW5jdGlvbihkZiwgbW9kZWxvKSB7DQogICAgYnlfc3RvcCA8LSBkZiAlPiUNCiAgICAgICAgbXV0YXRlKGVycm9yID0gYXJyaXZhbF90aW1lIC0gZXN0X2Fycml2YWxfdGltZSkgJT4lDQogICAgICAgIHN1bW1hcmlzZSgNCiAgICAgICAgICAgIE1vZGVsbyA9IG1vZGVsbywNCiAgICAgICAgICAgIFJNU0UgPSBzcXJ0KG1lYW4oZXJyb3JeMiwgbmEucm0gPSBUUlVFKSksDQogICAgICAgICAgICBNQUUgPSBtZWFuKGFicyhlcnJvciksIG5hLnJtID0gVFJVRSksDQogICAgICAgICAgICBNQVBFID0gbWVhbihhYnMoZXJyb3IpL2Fycml2YWxfdGltZSwgbmEucm0gPSBUUlVFKSwNCiAgICAgICAgICAgIE1BRCA9IG1lZGlhbihhYnMoZXJyb3IgLSBtZWRpYW4oZXJyb3IsIG5hLnJtID0gVFJVRSkpLCBuYS5ybSA9IFRSVUUpLA0KICAgICAgICAgICAgLmJ5ID0gInN0b3Bfb3JkZXIiDQogICAgICAgICkgJT4lDQogICAgICAgIGFycmFuZ2Uoc3RvcF9vcmRlcikgJT4lDQogICAgICAgIHJlbmFtZSgiT3JkZW0gZG8gcG9udG8iID0gc3RvcF9vcmRlcikgJT4lDQogICAgICAgIG11dGF0ZShhY3Jvc3MoYE9yZGVtIGRvIHBvbnRvYCwgYXMuY2hhcmFjdGVyKSkNCiAgICANCiAgICB0b3RhbCA8LSBkZiAlPiUNCiAgICAgICAgbXV0YXRlKGVycm9yID0gYXJyaXZhbF90aW1lIC0gZXN0X2Fycml2YWxfdGltZSkgJT4lDQogICAgICAgIHN1bW1hcmlzZSgNCiAgICAgICAgICAgIGBPcmRlbSBkbyBwb250b2AgPSAiVG90YWwiLA0KICAgICAgICAgICAgTW9kZWxvID0gbW9kZWxvLA0KICAgICAgICAgICAgUk1TRSA9IHNxcnQobWVhbihlcnJvcl4yLCBuYS5ybSA9IFRSVUUpKSwNCiAgICAgICAgICAgIE1BRSA9IG1lYW4oYWJzKGVycm9yKSwgbmEucm0gPSBUUlVFKSwNCiAgICAgICAgICAgIE1BUEUgPSBtZWFuKGFicyhlcnJvcikvYXJyaXZhbF90aW1lLCBuYS5ybSA9IFRSVUUpLA0KICAgICAgICAgICAgTUFEID0gbWVkaWFuKGFicyhlcnJvciAtIG1lZGlhbihlcnJvciwgbmEucm0gPSBUUlVFKSksIG5hLnJtID0gVFJVRSkNCiAgICAgICAgKQ0KICAgIA0KICAgIGJpbmRfcm93cyh0b3RhbCwgYnlfc3RvcCkNCn0NCmBgYA0KDQoNCmBgYHtyLCBlY2hvID0gRkFMU0V9DQpiZW5jaCA8LSB0cmFpbmluZ19kYXRhICU+JQ0KICAgIHN1bW1hcmlzZSgNCiAgICAgICAgZXN0X2Fycml2YWxfdGltZSA9IG1lYW4oYXJyaXZhbF90aW1lLCBuYS5ybSA9IFRSVUUpLA0KICAgICAgICAuYnkgPSBjKCJzZXJ2aWNvIiwgInN0b3BfaWQiLCAic3RvcF9vcmRlciIpDQogICAgKQ0KDQpiZW5jaCA8LSB0ZXN0X2RhdGEgJT4lDQogICAgbGVmdF9qb2luKGJlbmNoLCBieSA9IGMoInNlcnZpY28iLCAic3RvcF9pZCIsICJzdG9wX29yZGVyIikpDQoNCmJlbmNoIDwtIHByZWRpY3Rpb25fZXJyb3JzKGJlbmNoLCAiTcOpZGlhcyBoaXN0w7NyaWNhcyIpDQoNCm1vZGVscyA8LSBtb2RlbHMgJT4lDQogICAgYmluZF9yb3dzKGJlbmNoWzEsXSkNCg0Ka2FibGUoYmVuY2gsIGRpZ2l0cyA9IDEpDQpgYGANCg0KDQojIyBNb2RlbG8gTmV3dG9uaWFubw0KDQpcWw0KXHdpZGVoYXR7eX1faSA9IFxmcmFje1x0ZXh0e2Rpc3TDom5jaWEgYXTDqSBvIHByw7N4LiBwb250b319e1x0ZXh0e3ZlbG9jaWRhZGUgbcOpZGlhIMO6bHRpbW9zIDEwbWluc319DQpcXQ0KDQpgYGB7ciwgZWNobyA9IEZBTFNFfQ0KbmV3dG9uIDwtIHRlc3RfZGF0YSAlPiUNCiAgICBtdXRhdGUoDQogICAgICAgIGVzdF9hcnJpdmFsX3RpbWUgPSAxLzEwMDAgKiBkaXN0X3RvX3N0b3AvdmVsb2NpZGFkZV9lc3RpbWFkYV8xMF9taW4NCiAgICApDQoNCm5ld3RvbiA8LSBwcmVkaWN0aW9uX2Vycm9ycyhuZXd0b24sICJOZXd0b25pYW5vIikNCg0KbW9kZWxzIDwtIG1vZGVscyAlPiUNCiAgICBiaW5kX3Jvd3MobmV3dG9uWzEsXSkNCg0Ka2FibGUobmV3dG9uLCBkaWdpdHMgPSAxKQ0KYGBgDQoNCiMjIFJlZ3Jlc3PDo28gbGluZWFyDQoNClxbDQpcbG9nKFx3aWRlaGF0e3l9X2kpID0gXGFscGhhICsgXGJldGFcLFxsb2coXHRleHR7ZGlzdMOibmNpYX0pICsgXGdhbW1hXCxcbG9nKHZfXHRleHR7MTBtaW5zfSkgKyBcZGVsdGFcLCBcbG9nKHZfXHRleHR7aW5zdH0gKyAxKQ0KXF0NCg0KYGBge3IsIGVjaG8gPSBGQUxTRX0NCnJlZ19uZXd0b24gPC0gbG0oDQogICAgbG9nKGFycml2YWxfdGltZSkgfiBsb2coZGlzdF90b19zdG9wKSArIGxvZyh2ZWxvY2lkYWRlX2VzdGltYWRhXzEwX21pbikgDQogICAgKyBsb2codmVsb2NpZGFkZV9pbnN0YW50YW5lYSArIDEpLA0KICAgIGRhdGEgPSB0cmFpbmluZ19kYXRhDQopDQoNCnJlZ19uZXd0b24gPC0gdGVzdF9kYXRhICU+JQ0KICAgIGJpbmRfY29scygiZXN0X2Fycml2YWxfdGltZSIgPSBwcmVkaWN0KHJlZ19uZXd0b24sIHRlc3RfZGF0YSkpICU+JQ0KICAgIG11dGF0ZShlcnJvciA9IChhcnJpdmFsX3RpbWUgLSBlc3RfYXJyaXZhbF90aW1lKSkgJT4lDQogICAgcHJlZGljdGlvbl9lcnJvcnMoIlJlZ3Jlc3PDo28gc2ltcGxlcyIpDQoNCm1vZGVscyA8LSBtb2RlbHMgJT4lDQogICAgYmluZF9yb3dzKHJlZ19uZXd0b25bMSxdKQ0KDQprYWJsZShyZWdfbmV3dG9uLCBkaWdpdHMgPSAxKQ0KYGBgDQoNCiMjIFJlZ3Jlc3PDo28gY29tIEVmZWl0b3MgRml4b3MNCg0KXFsNClxsb2coXHdpZGVoYXR7eX1faSkgPSBcYWxwaGFfe1x0ZXh0e3NlcnZpw6dvLCBwb250b319ICsgXGJldGFcLFxsb2coXHRleHR7ZGlzdMOibmNpYX0pICsgXGdhbW1hXCxcbG9nKFx0ZXh0e3ZlbG9jaWRhZGUgMTBtaW5zfSkNClxdDQoNCmBgYHtyLCBlY2hvID0gRkFMU0V9DQp0cmFpbmluZ19kYXRhIDwtIHRyYWluaW5nX2RhdGEgJT4lDQogICAgbXV0YXRlKGhvcmEgPSBzdHJpbmdyOjpzdHJfc3BsaXQoaG9yYSwgIjoiLCBzaW1wbGlmeSA9IFRSVUUpICU+JSB7LlssMV19KQ0KDQp0ZXN0X2RhdGEgPC0gdGVzdF9kYXRhICU+JQ0KICAgIG11dGF0ZShob3JhID0gc3RyaW5ncjo6c3RyX3NwbGl0KGhvcmEsICI6Iiwgc2ltcGxpZnkgPSBUUlVFKSAlPiUgey5bLDFdfSkNCg0KIyBFc3RpbWFuZG8NCg0KZmVfcmVnIDwtIGZlb2xzKA0KICAgIGxvZyhhcnJpdmFsX3RpbWUpIH4gbG9nKGRpc3RfdG9fc3RvcCkgKyBsb2codmVsb2NpZGFkZV9lc3RpbWFkYV8xMF9taW4pIA0KICAgICsgbG9nKHZlbG9jaWRhZGVfaW5zdGFudGFuZWEgKyAxKSB8IHNlcnZpY29ec3RvcF9pZCwNCiAgICBkYXRhID0gdHJhaW5pbmdfZGF0YSwNCiAgICBjb21iaW5lLnF1aWNrID0gRkFMU0UNCikNCg0KIyBDYWxjdWxhbmRvIHBlcmZvcm1hbmNlDQoNCmZlX3JlZyA8LSB0ZXN0X2RhdGEgJT4lDQogICAgYmluZF9jb2xzKCJlc3RfYXJyaXZhbF90aW1lIiA9IHByZWRpY3QoZmVfcmVnLCB0ZXN0X2RhdGEpKSAlPiUNCiAgICBwcmVkaWN0aW9uX2Vycm9ycygiRUYgZGUgc2VydmnDp28tcG9udG8iKQ0KDQptb2RlbHMgPC0gbW9kZWxzICU+JQ0KICAgIGJpbmRfcm93cyhmZV9yZWdbMSxdKQ0KDQprYWJsZShmZV9yZWcsIGRpZ2l0cyA9IDEpDQpgYGANCg0KIyMgUmVncmVzc8OjbyBjb20gRWZlaXRvcyBGaXhvcyBpbmNsdWluZG8gaG9yw6FyaW9zDQoNClxbDQpcbG9nKFx3aWRlaGF0e3l9X2kpID0gXGFscGhhX3tcdGV4dHtzZXJ2acOnbywgcG9udG99fSArIFxhbHBoYV97XHRleHR7aG9yYSwgcG9udG99fSArIFxiZXRhXCxcbG9nKFx0ZXh0e2Rpc3TDom5jaWF9KSArIFxnYW1tYVwsXGxvZyhcdGV4dHt2ZWxvY2lkYWRlIDEwbWluc30pDQpcXQ0KDQpgYGB7ciwgZWNobyA9IEZBTFNFfQ0KIyBFc3RpbWFuZG8NCg0KZmVfcmVnX2hvcmEgPC0gZmVvbHMoDQogICAgbG9nKGFycml2YWxfdGltZSkgfiBsb2coZGlzdF90b19zdG9wKSArIGxvZyh2ZWxvY2lkYWRlX2VzdGltYWRhXzEwX21pbikNCiAgICArIGxvZyh2ZWxvY2lkYWRlX2luc3RhbnRhbmVhICsgMSkgfCBzZXJ2aWNvXnN0b3BfaWQgKyBzdG9wX2lkXmhvcmEsDQogICAgZGF0YSA9IHRyYWluaW5nX2RhdGEsDQogICAgY29tYmluZS5xdWljayA9IEZBTFNFDQopDQoNCiMgQ2FsY3VsYW5kbyBwZXJmb3JtYW5jZQ0KDQpmZV9yZWdfaG9yYSA8LSB0ZXN0X2RhdGEgJT4lDQogICAgYmluZF9jb2xzKCJlc3RfYXJyaXZhbF90aW1lIiA9IHByZWRpY3QoZmVfcmVnX2hvcmEsIHRlc3RfZGF0YSkpICU+JQ0KICAgIHByZWRpY3Rpb25fZXJyb3JzKCJFRiBkZSBzZXJ2acOnby1wb250byBlIHBvbnRvLWhvcmEiKQ0KDQptb2RlbHMgPC0gbW9kZWxzICU+JQ0KICAgIGJpbmRfcm93cyhmZV9yZWdfaG9yYVsxLF0pDQoNCmthYmxlKGZlX3JlZ19ob3JhLCBkaWdpdHMgPSAxKQ0KYGBgDQoNCiMjIFJhbmRvbSBGb3Jlc3QNCg0KYGBge3IsIG1lc3NhZ2UgPSBGQUxTRX0NCnRyYWluaW5nX2RhdGEgPC0gdHJhaW5pbmdfZGF0YSAlPiUNCiAgICBtdXRhdGUoYWNyb3NzKGhvcmEsIGFzLm51bWVyaWMpKSAlPiUNCiAgICBtdXRhdGUoYWNyb3NzKHN0b3BfaWQsIGFzLmZhY3RvcikpDQoNCnRlc3RfZGF0YSA8LSB0ZXN0X2RhdGEgJT4lDQogICAgbXV0YXRlKGFjcm9zcyhob3JhLCBhcy5udW1lcmljKSkgJT4lDQogICAgbXV0YXRlKGFjcm9zcyhzdG9wX2lkLCBhcy5mYWN0b3IpKQ0KDQp0cmFpbmluZ19zdWJzZXQgPC0gdHJhaW5pbmdfZGF0YSAlPiUNCiAgICBzbGljZV9zYW1wbGUocHJvcCA9IDAuMDUpDQoNCnkgPC0gdHJhaW5pbmdfc3Vic2V0ICU+JQ0KICAgIHNlbGVjdChhcnJpdmFsX3RpbWUpICU+JQ0KICAgIHVubGlzdCgpDQoNCnggPC0gdHJhaW5pbmdfc3Vic2V0ICU+JQ0KICAgIHNlbGVjdCgNCiAgICAgICAgaG9yYSwgbGF0aXR1ZGUsIGxvbmdpdHVkZSwNCiAgICAgICAgdmVsb2NpZGFkZV9pbnN0YW50YW5lYSwgdmVsb2NpZGFkZV9lc3RpbWFkYV8xMF9taW4sIGRpc3RhbmNpYSwNCiAgICAgICAgZGlzdF90cmF2ZWxlZF9zaGFwZSwgZGlzdF90b19zdG9wLCBzdG9wX29yZGVyDQogICAgKSAlPiUNCiAgICBhcy5tYXRyaXgoKQ0KDQpyZiA8LSByYW5kb21Gb3Jlc3QoDQogICAgeCA9IHgsIHkgPSB5LA0KICAgIHByb3hpbWl0eSA9IEZBTFNFLA0KICAgIGtlZXAuZm9yZXN0ID0gVFJVRSwNCiAgICBpbXBvcnRhbmNlID0gVFJVRSwNCiAgICBkby50cmFjZSA9IFRSVUUsDQogICAgbnRyZWUgPSAxMDAwLA0KICAgIG1heG5vZGVzID0gMjQNCikNCg0KeF90ZXN0IDwtIHRlc3RfZGF0YSAlPiUNCiAgICBzZWxlY3QoDQogICAgICAgIGhvcmEsIGxhdGl0dWRlLCBsb25naXR1ZGUsDQogICAgICAgIHZlbG9jaWRhZGVfaW5zdGFudGFuZWEsIHZlbG9jaWRhZGVfZXN0aW1hZGFfMTBfbWluLCBkaXN0YW5jaWEsDQogICAgICAgIGRpc3RfdHJhdmVsZWRfc2hhcGUsIGRpc3RfdG9fc3RvcCwgc3RvcF9vcmRlcg0KICAgICkNCg0KcmYgPC0gdGVzdF9kYXRhICU+JQ0KICAgIGJpbmRfY29scygiZXN0X2Fycml2YWxfdGltZSIgPSBwcmVkaWN0KHJmLCB4X3Rlc3QpKSAlPiUNCiAgICBwcmVkaWN0aW9uX2Vycm9ycygiUmFuZG9tIEZvcmVzdCIpDQoNCm1vZGVscyA8LSBtb2RlbHMgJT4lDQogICAgYmluZF9yb3dzKHJmWzEsXSkNCg0Ka2FibGUocmYsIGRpZ2l0cyA9IDEpDQpgYGANCg0KIyMgQ29tcGFyYXRpdm8NCg0KYGBge3J9DQprYWJsZShtb2RlbHMsIGRpZ2l0cyA9IDEpDQpgYGANCg0KDQo=</div>
 
 
 
