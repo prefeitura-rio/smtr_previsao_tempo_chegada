@@ -127,7 +127,7 @@ kable(bench, digits = 1)
 ```{r, echo = FALSE}
 newton <- test_data %>%
     mutate(
-        est_arrival_time = 1/1000 * dist_to_stop/velocidade_estimada_10_min
+        est_arrival_time = 60/1000 * dist_to_stop/velocidade_estimada_10_min
     )
 
 newton <- prediction_errors(newton, "Newtoniano")
