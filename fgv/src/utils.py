@@ -320,6 +320,54 @@ def assign_distance_traveled(gps_in_route, gps_direction, gps_distance_dir_0, gp
     # Return the distance arrays
     return distance_traveled, cumulative_distance_traveled
 
+@jit(nopython=True)
+def get_closest_stop(gps_distance, stop_distances, mode="next"):
+    """
+    Get the index of the closest stop to the GPS distance.
+
+    Args:
+        gps_distance (float): The GPS distance traveled
+        stop_distances (np.array): The distance traveled to each bus stop
+        mode (str, optional): The mode to get the closest stop. Defaults to "next".
+
+    Raises:
+        ValueError: If an invalid mode is provided.
+
+    Returns:
+        int: The index of the closest stop.
+    """
+
+    match mode:
+        # Get the next stop index
+        case "next":
+            # Get the smaller index where the stop distance is greater than the GPS distance
+            return min(np.searchsorted(stop_distances, gps_distance, side="right"), len(stop_distances) - 1)
+
+        # Get the last stop index
+        case "last":
+            # Get the largest index where the stop distance is smaller than the GPS distance
+            return max(np.searchsorted(stop_distances, gps_distance, side="left"), 0)
+
+        # Raise an error for invalid mode
+        case _:
+            raise ValueError("Invalid mode. Choose 'next' or 'last'.")
+
+@jit(nopython=True)
+def get_last_stop(gps_distance, stop_distances):
+    """
+    Get the index of the last stop before the GPS distance.
+
+    Args:
+        gps_distance (float): The GPS distance traveled
+        stop_distances (np.array): The distance traveled to each bus stop
+
+    Returns:
+        int: The index of the last stop.
+    """
+    return get_closest_stop(gps_distance, stop_distances, mode="last")
+
+@jit(nopython=True)
+def get_next_stop(gps_distance, stop_distances):
     """
     Get the index of the next stop after the GPS distance.
 
@@ -331,3 +379,120 @@ def assign_distance_traveled(gps_in_route, gps_direction, gps_distance_dir_0, gp
         int: The index of the next stop.
     """
     return get_closest_stop(gps_distance, stop_distances, mode="next")
+
+@ jit(nopython=True)
+def assign_stops(gps_in_route, gps_direction, gps_distance, stops_distances_by_direction, stop_tolerance=20):
+    """
+    Assigns the stops to the GPS data based on the direction and distance from the start of the route.
+    """
+    # By default, the first direction is the first one in the list
+    stop_distances = stops_distances_by_direction[gps_direction[0]]
+
+    # Initialize the lists of last and next stops with -1, by default
+    last_stops = np.full(len(gps_in_route), -1, dtype=np.int32)
+    next_stops = np.full(len(gps_in_route), -1, dtype=np.int32)
+    distance_to_last_stop = np.full(len(gps_in_route), -1, dtype=np.float32)
+    distance_to_next_stop = np.full(len(gps_in_route), -1, dtype=np.float32)
+
+    # Iterate over the GPS data
+    for i in range(len(gps_in_route)):
+        # Skip the points that are not in the route
+        if gps_in_route[i] == False:
+            continue
+
+        # Update the list of stops by direction if it has changed
+        if i > 0 and gps_direction[i] != gps_direction[i-1]:
+            stop_distances = stops_distances_by_direction[gps_direction[i]]
+
+        # Assign the indexes of the last and next stops
+        next_stops[i] = get_next_stop(gps_distance[i], stop_distances)
+        # last_stops[i] = utils.get_last_stop(gps_distance[i], stop_distances)
+        last_stops[i] = max(0, next_stops[i] - 1) # To avoid unnecessary calculations
+
+        # Assign the distances to the last and next stops
+        distance_to_next_stop[i] = max(stop_distances[next_stops[i]] - gps_distance[i], 0)
+        distance_to_last_stop[i] = max(abs(stop_distances[last_stops[i]] - gps_distance[i]), 0)
+
+    # Return the lists of last and next stops
+    return last_stops, next_stops, distance_to_last_stop, distance_to_next_stop
+
+@jit(nopython=True)
+def map_distance_into_timestamp(current_distance, initial_distance, final_distance, initial_timestamp, final_timestamp):
+    """
+    Map a distance into a timestamp using a linear interpolation
+    
+    Args:
+        current_distance (float): The distance to be mapped
+        initial_distance (float): The initial distance
+        final_distance (float): The final distance
+        initial_timestamp (int): The initial timestamp
+        final_timestamp (int): The final timestamp
+
+    Returns:
+        float: The mapped timestamp
+    """
+    return (current_distance - initial_distance) * (final_timestamp - initial_timestamp) / (final_distance - initial_distance) + initial_timestamp
+
+def virtualize_stop_points(gps_timestamps, gps_in_route, gps_direction, gps_last_stop_index, gps_next_stop_index, gps_distances, gps_cumulative_distances, stops_distances_by_direction):
+
+    # By default, the first direction is the first one in the list
+    current_direction = gps_direction[0]
+    stop_distances = stops_distances_by_direction[current_direction]
+    
+    # Initialize the list of virtual datapoints
+    virtual_datapoints = list()
+
+    # Iterate over the gps data
+    for i in range(1, len(gps_timestamps)):
+
+        # Ensure that the last and current datapoint are in the route
+        if gps_in_route[i-1] == False or gps_in_route[i] == False:
+            continue
+
+        # If the direction changes
+        if gps_direction[i] != current_direction:
+            current_direction = gps_direction[i] # Update the current direction
+            stop_distances = stops_distances_by_direction[current_direction] # Update the stop distances
+            continue # To ensure that we have 2 consecutive datapoints with the same direction
+
+        # Check if the bus went through a bus stop between the last and current datapoints
+        if gps_last_stop_index[i-1] != gps_last_stop_index[i] or gps_next_stop_index[i-1] != gps_next_stop_index[i]:
+
+            # Get the indexes of the stops to be generated
+            initial_stop_index = gps_next_stop_index[i-1]
+            final_stop_index = gps_last_stop_index[i]
+
+            if initial_stop_index >= len(stop_distances) or final_stop_index >= len(stop_distances):
+                # print(f"ERROR: Stop index out of bounds: {initial_stop_index} {final_stop_index}")
+                continue
+
+            # Get the distances of the last and current datapoint, to be used in the interpolation
+            initial_distance = gps_distances[i-1]
+            final_distance = gps_distances[i]
+
+            # Iteratate over the stops to be generated
+            for stop_num in range(initial_stop_index, final_stop_index + 1):
+                # Get the timestamp and distance of the virtual datapoint
+                virtual_timestamp = map_distance_into_timestamp(stop_distances[stop_num], initial_distance, final_distance, gps_timestamps[i-1], gps_timestamps[i])
+                virtual_distance = stop_distances[stop_num]
+
+                # Assert if both values are valid
+                assert virtual_timestamp >= gps_timestamps[i-1] and virtual_timestamp <= gps_timestamps[i]
+                assert virtual_distance >= gps_distances[i-1] and virtual_distance <= gps_distances[i]
+
+                # Append the virtual datapoints to alist
+                virtual_datapoints.append([virtual_timestamp, # timestamp
+                                           virtual_distance, # distance_traveled
+                                           gps_cumulative_distances[i-1] + (virtual_distance - initial_distance), # cumulative_distance_traveled
+                                           gps_direction[i], # direction
+                                           stop_num, # current_stop_index
+                                           next_stop_index := min(stop_num + 1, len(stop_distances) - 1), # next_stop_index (to avoid out of bounds error)
+                                           stop_distances[next_stop_index] - stop_distances[stop_num]]) # next_stop_distance
+
+    # Convert the list into a pandas dataframe
+    virtual_df = pd.DataFrame(virtual_datapoints, columns=['timestamp_gps', 'distance_traveled', 'cumulative_distance_traveled', 'direction', 'last_stop_index', 'next_stop_index',  'next_stop_distance'])
+
+    
+
+    # Return the dataframe that contains the virtual datapoints
+    return virtual_df
