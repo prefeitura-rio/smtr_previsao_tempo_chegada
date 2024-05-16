@@ -47,7 +47,7 @@ dat <- readr::read_csv(file.path(source, "gps_sample.csv"))
 
 dat %>%
     mutate(
-        est_arrival_time = 1/1000 * dist_next_stop/velocidade_estimada_10_min,
+        est_arrival_time = 1/1000 * dist_to_stop/velocidade_estimada_10_min,
         error = (arrival_time - est_arrival_time)
     ) %>%
     summarise(

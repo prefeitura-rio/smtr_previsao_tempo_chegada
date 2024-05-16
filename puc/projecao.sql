@@ -247,6 +247,21 @@ GPSShapesIncreasing as (
         and lag_4_dist_traveled_shape >= lag_5_dist_traveled_shape
 ),
 
+-- se uma observação é ambígua, removo
+
+AuxShapesAmbig as (
+    select id_veiculo, timestamp_gps, COUNT(shape_id) as count_obs
+    from GPSShapesIncreasing
+    group by id_veiculo, timestamp_gps
+),
+
+GPSShapesDesem as (
+    select * except(count_obs)
+    from GPSShapesIncreasing
+        inner join AuxShapesAmbig using(id_veiculo, timestamp_gps)
+    where count_obs = 1
+),
+
 GPSLeads as (
     select *,
     LEAD(dist_traveled_shape) over(
@@ -257,22 +272,7 @@ GPSLeads as (
             partition by id_veiculo, shape_id
             order by id_veiculo, shape_id, timestamp_gps)
         as lead_timestamp_gps
-    from GPSShapesIncreasing
-),
-
--- se uma observação é ambígua, removo
-
-AuxShapesAmbig as (
-    select id_veiculo, timestamp_gps, COUNT(shape_id) as count_obs
-    from GPSLeads
-    group by id_veiculo, timestamp_gps
-),
-
-GPSShapesDesem as (
-    select * except(count_obs)
-    from GPSLeads
-        inner join AuxShapesAmbig using(id_veiculo, timestamp_gps)
-    where count_obs = 1
+    from GPSShapesDesem
 ),
 
 ------------------------------------
@@ -286,7 +286,7 @@ GPSShapesDesem as (
 AuxNextStop as (
     select id_veiculo, timestamp_gps, g.data as data,
         g.shape_id as shape_id, dist_traveled_stop, stop_id
-    from GPSShapesDesem g
+    from GPSLeads g
         left join GTFSStops s on
             g.data = s.data and g.servico = s.servico and g.shape_id = s.shape_id
             and g.dist_traveled_shape < s.dist_traveled_stop
@@ -302,7 +302,7 @@ GPSNextStop as (
             partition by id_veiculo, shape_id, timestamp_gps
             order by id_veiculo, shape_id, timestamp_gps, dist_traveled_stop
             ) as stop_order
-    from GPSShapesDesem
+    from GPSLeads
         left join AuxNextStop using(data, id_veiculo, timestamp_gps, shape_id)
     where dist_traveled_stop > dist_traveled_shape
 ),
