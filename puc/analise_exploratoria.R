@@ -21,15 +21,15 @@ source <- "F:/Dados/SMTR"
 
 query <- readr::read_file("projecao.sql")
 
-start_date <- "\"2024-03-12\""
+start_date <- "\"2024-03-11\""
 
-end_date <- "\"2024-03-12\""
+end_date <- "\"2024-03-11\""
 
 query <- query %>%
     gsub("\\{start_date\\}", start_date, .) %>%
     gsub("\\{end_date\\}", end_date, .)
 
-#dat <- read_sql(query)
+d1 <- read_sql(query)
 
 download(query, path = file.path(source, "gps_test_1_10.csv"))
 
@@ -47,7 +47,7 @@ dat <- readr::read_csv(file.path(source, "gps_sample.csv"))
 
 dat %>%
     mutate(
-        est_arrival_time = 1/1000 * dist_to_stop/velocidade_estimada_10_min,
+        est_arrival_time = 60/1000 * dist_to_stop/velocidade_estimada_10_min,
         error = (arrival_time - est_arrival_time)
     ) %>%
     summarise(

@@ -106,6 +106,7 @@ GPS as (
     from `rj-smtr.br_rj_riodejaneiro_veiculos.gps_sppo`
     where data between {start_date} and {end_date}
         and flag_em_operacao = TRUE
+        and hora < "14:00:00" and hora > "12:00:00"
 ),
         
 -----------------------------
@@ -116,33 +117,42 @@ GPS as (
 -- cada elemento da coluna dump é um array de linestrings
 
 AuxDump as (
-    select *, 
+    select data, shape_id, servico, shape, 
         ST_DUMP(shape, 1) dump
     from GTFSShapes
+),
+
+AuxLines as (
+    select * from AuxDump
+    join UNNEST(AuxDump.dump) lines with offset
 ),
 
 -- truque para fazer UNNEST da coluna de arrays
 -- passam a ter várias linhas, uma para cada segmento de reta
 -- que compõe o polígono
 
-AuxLines as (
-    with A as (
-        select * from AuxDump
-    )
-    select data, shape_id, servico, lines 
-    from A, A.dump as lines
+-- algumas rotas vêm duplicadas. removo as ambiguidades
+
+AuxLinesDup as (
+    select * from AuxLines
+    qualify
+        COUNT(*) over (
+        partition by data, shape_id, servico, offset
+        order by data, shape_id, servico
+        ) = 1
 ),
 
 -- calculando a distância total acumulada até cada segmento
 
 AuxDistances as (
-    select *,
+    select * except(offset),
         IFNULL(
         SUM(ST_LENGTH(lines)) over(
             partition by shape_id, servico, data
+            order by shape_id, servico, data, offset
             rows between unbounded preceding and 1 preceding), 0)
         as dist_traveled_shape
-    from AuxLines
+    from AuxLinesDup
 ),
 
 -- geometria da posição do ônibus
@@ -183,7 +193,8 @@ GPSShapePoints as (
     qualify
         ROW_NUMBER() over (
         partition by id_veiculo, shape_id, timestamp_gps
-        order by distancia_shape) = 1
+        order by id_veiculo, shape_id, timestamp_gps, distancia_shape
+        ) = 1
 ),
 
 -- projetando o ponto na linha mais próxima para calcular distância
@@ -212,24 +223,24 @@ GPSProjectDist as (
 GPSShapesLag as (
     select *,
         LAG(dist_traveled_shape) over(
-            partition by id_veiculo, shape_id, data
-            order by id_veiculo, shape_id, data, timestamp_gps)
+            partition by id_veiculo, shape_id
+            order by id_veiculo, shape_id, timestamp_gps)
         as lag_dist_traveled_shape,
         LAG(dist_traveled_shape, 2) over(
-            partition by id_veiculo, shape_id, data
-            order by id_veiculo, shape_id, data, timestamp_gps)
+            partition by id_veiculo, shape_id
+            order by id_veiculo, shape_id, timestamp_gps)
         as lag_2_dist_traveled_shape,
         LAG(dist_traveled_shape, 3) over(
-            partition by id_veiculo, shape_id, data
-            order by id_veiculo, shape_id, data, timestamp_gps)
+            partition by id_veiculo, shape_id
+            order by id_veiculo, shape_id, timestamp_gps)
         as lag_3_dist_traveled_shape,
         LAG(dist_traveled_shape, 4) over(
-            partition by id_veiculo, shape_id, data
-            order by id_veiculo, shape_id, data, timestamp_gps)
+            partition by id_veiculo, shape_id
+            order by id_veiculo, shape_id, timestamp_gps)
         as lag_4_dist_traveled_shape,
         LAG(dist_traveled_shape, 5) over(
-            partition by id_veiculo, shape_id, data
-            order by id_veiculo, shape_id, data, timestamp_gps)
+            partition by id_veiculo, shape_id
+            order by id_veiculo, shape_id, timestamp_gps)
         as lag_5_dist_traveled_shape
     from GPSProjectDist
 ),
@@ -262,19 +273,6 @@ GPSShapesDesem as (
     where count_obs = 1
 ),
 
-GPSLeads as (
-    select *,
-    LEAD(dist_traveled_shape) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
-        as lead_dist_traveled_shape,
-    LEAD(timestamp_gps) over(
-            partition by id_veiculo, shape_id
-            order by id_veiculo, shape_id, timestamp_gps)
-        as lead_timestamp_gps
-    from GPSShapesDesem
-),
-
 ------------------------------------
 -- identificando pontos de onibus --
 ------------------------------------
@@ -284,13 +282,21 @@ GPSLeads as (
 -- tomo os com distância maior que a viajada
 
 AuxNextStop as (
-    select id_veiculo, timestamp_gps, g.data as data,
+    select distinct id_veiculo, timestamp_gps, g.data as data,
         g.shape_id as shape_id, dist_traveled_stop, stop_id
-    from GPSLeads g
+    from GPSShapesDesem g
         left join GTFSStops s on
             g.data = s.data and g.servico = s.servico and g.shape_id = s.shape_id
             and g.dist_traveled_shape < s.dist_traveled_stop
+    qualify
+        ROW_NUMBER() over (
+        partition by id_veiculo, shape_id, timestamp_gps, stop_id
+        order by id_veiculo, shape_id, timestamp_gps, stop_id, dist_traveled_stop
+        ) = 1
 ),
+
+-- há pontos que aparecem mais de uma vez na mesma rota (stop_ids repetidas)
+-- escolhendo o menor
 
 -- join com a base completa para identificar os pontos seguintes de cada obs.
 
@@ -302,9 +308,35 @@ GPSNextStop as (
             partition by id_veiculo, shape_id, timestamp_gps
             order by id_veiculo, shape_id, timestamp_gps, dist_traveled_stop
             ) as stop_order
-    from GPSLeads
+    from GPSShapesDesem
         left join AuxNextStop using(data, id_veiculo, timestamp_gps, shape_id)
     where dist_traveled_stop > dist_traveled_shape
+),
+
+-- marcando leads e lags
+-- crio uma base auxiliar para tirar linhas com tempos repetidos
+
+AuxLeads as (
+    select *,
+        LEAD(dist_traveled_shape) over(
+                    partition by id_veiculo, shape_id
+                    order by id_veiculo, shape_id, timestamp_gps)
+        as lead_dist_traveled_shape,
+        LEAD(timestamp_gps) over(
+                    partition by id_veiculo, shape_id
+                    order by id_veiculo, shape_id, timestamp_gps)
+        as lead_timestamp_gps
+        from (
+            select distinct id_veiculo, shape_id, timestamp_gps, dist_traveled_shape
+            from GPSNextStop
+        )
+),
+
+GPSLeads as (
+    select *
+        from GPSNextStop
+            left join AuxLeads
+                using(id_veiculo, shape_id, timestamp_gps, dist_traveled_shape)
 ),
 
 -----------------------
@@ -340,13 +372,13 @@ GPSStopsChange as (
                 then lead_timestamp_gps
             else null
         end arrival_time
-    from GPSNextStop
+    from GPSLeads
 ),
 
 -- estendendo de baixo para cima:
 -- se o ônibus chega no ponto X às 13h,
 -- às 12h30 o tempo de chegada a X é 13h
-        
+      
 GPSStopsFill as (
     select * except(arrival_time),
         FIRST_VALUE(arrival_time IGNORE NULLS) over(
@@ -364,9 +396,10 @@ GPSArrivalTime as (
         DATETIME_DIFF(arrival_time, timestamp_gps, MICROSECOND)/(60 * 1000000) as arrival_time
     from GPSStopsFill
     where arrival_time != DATETIME(1970, 1, 1, 0, 0, 0)
+        and arrival_time is not null
 )
         
 select * from GPSArrivalTime
-    where stop_order <= 10
-        and arrival_time < 60
-        and tipo_parada is null
+    where stop_order = 1-- and arrival_time > 100-- and hora > "9:00:00" and hora < "10:00:00"
+    --    and arrival_time < 60
+    --    and tipo_parada is null
