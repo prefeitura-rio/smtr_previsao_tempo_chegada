@@ -4,7 +4,7 @@ library(dplyr)
 
 
 # Function to filter "in_route" == TRUE and "trip" != 0 and convert columns to the correct data types
-treat <- function(gps_data) {
+treat <- function(gps_data, trip_counter) {
     gps_data <- gps_data %>% filter(in_route == TRUE)
     gps_data <- gps_data %>% filter(trip != 0)
 
@@ -15,7 +15,8 @@ treat <- function(gps_data) {
 
     gps_data$distance_traveled <- as.numeric(gps_data$distance_traveled)
     gps_data$velocidade_estimada_10_min <- as.numeric(gps_data$velocidade_estimada_10_min)
-    gps_data$trip <- as.factor(gps_data$trip)
+    gps_data$trip <- as.factor(gps_data$trip + trip_counter)
+    trip_counter <- max(as.numeric(gps_data$trip)) 
     gps_data$hora <- as.POSIXct(gps_data$hora, format = "%H:%M:%S")
 
     # Create a categorical variable for the time period of the day (early morning, morning, early afternoon, late afternoon, evening, night)  
@@ -24,7 +25,7 @@ treat <- function(gps_data) {
     # Create a column with the previus distance_traveled
     gps_data$prev_distance_traveled <- c(0, gps_data$distance_traveled[-nrow(gps_data)])
 
-    # Create a column with the difference between the distance_traveled and the previus distance_traveled (if the time_elapsed is 1, the difference is 0)
+    # Create a column with the difference between the distance_travelcdaed and the previus distance_traveled (if the time_elapsed is 1, the difference is 0)
     gps_data$distance_traveled_diff <- ifelse(gps_data$time_elapsed == 1, 0, gps_data$distance_traveled - gps_data$prev_distance_traveled)
 
     # Create a column with the previus time_elapsed
@@ -33,11 +34,7 @@ treat <- function(gps_data) {
     # Create a column with the difference between the time_elapsed and the previus time_elapsed (if the time_elapsed is 1, the difference is 0)
     gps_data$time_elapsed_diff <- ifelse(gps_data$time_elapsed == 1, 0, gps_data$time_elapsed - gps_data$prev_time_elapsed)
 
-
-    # Filter to "direction" == 0
-    gps_data <- gps_data %>% filter(direction == 1)
-
-    return(gps_data)
+    return(list(gps_data, trip_counter))
 }
 
 
@@ -45,10 +42,14 @@ treat <- function(gps_data) {
 create_csv <- function(source) {
     files <- list.files(path = source, pattern = "*.csv", full.names = TRUE)
     processed_data <- data.frame()
+    trip_counter <- 0
 
     for (file in files) {
         data <- read_csv(file)
-        data <- treat(data)
+        treated_list <- treat(data, trip_counter)
+        data <- treated_list[[1]]
+        trip_counter <- treated_list[[2]]
+
         processed_data <- rbind(processed_data, data)
     }
 
@@ -56,16 +57,45 @@ create_csv <- function(source) {
 }
 
 
-# Function to split the data into training and test sets
-split_data <- function(data, seed = 0) {
+# Function to split the data into training and test sets randomly
+split_data_random <- function(data, train_size = 0.8, seed = 0) {
     set.seed(seed)
-    train_idx <- sample(1:nrow(data), 0.8 * nrow(data))
+    train_idx <- sample(1:nrow(data), train_size * nrow(data))
     train_data <- data[train_idx,]
     test_data <- data[-train_idx,]
 
     return(list(train_data, test_data))
 }
 
+# Function to split the data into training and test sets by date
+split_data_by_date <- function(data, train_size = 0.8, seed = 0) {
+    set.seed(seed)
+    dates <- unique(data$data)
+    train_idx <- sort(sample(dates, train_size * length(dates)))
+    train_data <- data[data$data %in% train_idx,]
+    test_data <- data[!data$data %in% train_idx,]
+
+    # Print the dates chosen for training and test separated by commas
+    print(paste("Dates chosen for training:", paste(train_idx, collapse = ", ")))
+    print(paste("Dates chosen for test:", paste(dates[!dates %in% train_idx], collapse = ", ")))
+
+    return(list(train_data, test_data))
+}
+
+# Function to split the data into training and test sets by trip
+split_data_by_trip <- function(data, train_size = 0.8, seed = 0) {
+    set.seed(seed)
+    trips <- unique(data$trip)
+    train_idx <- sort(sample(trips, train_size * length(trips)))
+    train_data <- data[data$trip %in% train_idx,]
+    test_data <- data[!data$trip %in% train_idx,]
+
+    # Print the trips chosen for training and test separated by commas
+    print(paste("Trips chosen for training:", paste(train_idx, collapse = ", ")))
+    print(paste("Trips chosen for test:", paste(trips[!trips %in% train_idx], collapse = ", ")))
+
+    return(list(train_data, test_data))
+}
 
 # Function to create columns with the estimated time_elapsed and the residuals for a model
 create_residuals <- function(data, model) {
@@ -87,8 +117,11 @@ source <- 'fgv/data/'
 # Get all data from the source folder
 processed_data <- create_csv(source)
 
+# Select only the values wtih direction == 0
+processed_data <- processed_data %>% filter(direction == 0)
+
 # Split data into training and test sets
-data_list <- split_data(processed_data)
+data_list <- split_data_by_trip(processed_data, train_size = 0.8, seed = 0)
 train_data <- data_list[[1]]
 test_data <- data_list[[2]]
 
@@ -105,7 +138,7 @@ glm_model_poisson <- glm(time_elapsed ~ distance_traveled:periodo_dia + velocida
 glm_model_gamma <- glm(time_elapsed ~ distance_traveled:periodo_dia + velocidade_estimada_10_min, data = train_data, family = Gamma(link = "log"))
 
 # Summarize the models
-summary(glm_model)
+summary(glm_model_gaussian)
 summary(glm_model_poisson)
 summary(glm_model_gamma)
 
@@ -133,13 +166,13 @@ glm_rmse_poisson <- sqrt(mean(train_data$glm_model_residuals_poisson^2))
 glm_rmse_gamma <- sqrt(mean(train_data$glm_model_residuals_gamma^2))
 
 
-# Calculate the median absolute error for both models
-glm_mae_gaussian <- median(abs(train_data$glm_model_residuals_gaussian))
-glm_mae_poisson <- median(abs(train_data$glm_model_residuals_poisson))
-glm_mae_gamma <- median(abs(train_data$glm_model_residuals_gamma))
+# Calculate the mean absolute error for both models
+glm_mae_gaussian <- mean(abs(train_data$glm_model_residuals_gaussian))
+glm_mae_poisson <- mean(abs(train_data$glm_model_residuals_poisson))
+glm_mae_gamma <- mean(abs(train_data$glm_model_residuals_gamma))
 
 
-# Print the root mean squared error and median absolute error for the GLM models
+# Print the root mean squared error and mean absolute error for the GLM models
 print(paste("RMSE Gaussian:", glm_rmse_gaussian, " - MAE Gaussian:", glm_mae_gaussian))
 print(paste("RMSE Poisson:", glm_rmse_poisson, " - MAE Poisson:", glm_mae_poisson))
 print(paste("RMSE Gamma:", glm_rmse_gamma, " - MAE Gamma:", glm_mae_gamma))
@@ -161,12 +194,47 @@ par(mfrow = c(3, 1))
 
 boxplot(train_data$glm_model_residuals_gaussian ~ train_data$time_elapsed_bins, col = "red", xlab = "Time Elapsed", ylab = "Residuals", main = "Gaussian Model")
 abline(h = 0, lty = 2) # dotted line at 0
+rect(0.5, -10000, 10.5, 10000, density = 10) # add a rectangle to highlight the residuals that are outside the range of -10000 to 10000
+
+# Calculate the RMSE and MAE for the highlighted time_elapsed bins
+highlighted_data <- train_data[train_data$time_elapsed_bins %in% levels(train_data$time_elapsed_bins)[1:10],]
+rmse_gaussian_highlighted <- sqrt(mean(highlighted_data$glm_model_residuals_gaussian^2))
+mae_gaussian_highlighted <- mean(abs(highlighted_data$glm_model_residuals_gaussian))
+
+# Plot the RMSE and MAPE over the highlighted time_elapsed bins
+max_y <- max(train_data$glm_model_residuals_gaussian)
+text(5, max_y - max_y/10, paste("RMSE:", round(rmse_gaussian_highlighted, 2)), font = 2, cex = 1.5)
+text(5, max_y - max_y/5, paste("MAE:", round(mae_gaussian_highlighted, 2)), font = 2, cex = 1.5)
+
 
 boxplot(train_data$glm_model_residuals_poisson ~ train_data$time_elapsed_bins, col = "blue", xlab = "Time Elapsed", ylab = "Residuals", main = "Poisson Model")
 abline(h = 0, lty = 2) # dotted line at 0
+rect(0.5, -10000, 10.5, 10000, density = 10) # add a rectangle to highlight the residuals that are outside the range of -10000 to 10000
+
+# Calculate the RMSE and MAE for the highlighted time_elapsed bins
+highlighted_data <- train_data[train_data$time_elapsed_bins %in% levels(train_data$time_elapsed_bins)[1:10],]
+rmse_poisson_highlighted <- sqrt(mean(highlighted_data$glm_model_residuals_poisson^2))
+mae_poisson_highlighted <- mean(abs(highlighted_data$glm_model_residuals_poisson))
+
+# Plot the RMSE and MAPE over the highlighted time_elapsed bins
+max_y <- max(train_data$glm_model_residuals_poisson)
+text(5, max_y - max_y/10, paste("RMSE:", round(rmse_poisson_highlighted, 2)), font = 2, cex = 1.5)
+text(5, max_y - max_y/5, paste("MAE:", round(mae_poisson_highlighted, 2)), font = 2, cex = 1.5)
+
 
 boxplot(train_data$glm_model_residuals_gamma ~ train_data$time_elapsed_bins, col = "green", xlab = "Time Elapsed", ylab = "Residuals", main = "Gamma Model")
 abline(h = 0, lty = 2) # dotted line at 0
+rect(0.5, -10000, 10.5, 10000, density = 10) # add a rectangle to highlight the residuals that are outside the range of -10000 to 10000
+
+# Calculate the RMSE and MAE for the highlighted time_elapsed bins
+highlighted_data <- train_data[train_data$time_elapsed_bins %in% levels(train_data$time_elapsed_bins)[1:10],]
+rmse_gamma_highlighted <- sqrt(mean(highlighted_data$glm_model_residuals_gamma^2))
+mae_gamma_highlighted <- mean(abs(highlighted_data$glm_model_residuals_gamma))
+
+# Plot the RMSE and MAPE over the highlighted time_elapsed bins
+max_y <- max(train_data$glm_model_residuals_gamma)
+text(5, max_y - max_y/10, paste("RMSE:", round(rmse_gamma_highlighted, 2)), font = 2, cex = 1.5)
+text(5, max_y - max_y/5, paste("MAE:", round(mae_gamma_highlighted, 2)), font = 2, cex = 1.5)
 
 # Reset the plotting layout
 par(mfrow = c(1, 1))
@@ -211,9 +279,32 @@ par(mfrow = c(3, 1))
 
 boxplot(test_data$glm_model_residuals_gaussian ~ test_data$time_elapsed_bins, col = "red", xlab = "Time Elapsed", ylab = "Residuals", main = "Gaussian Model")
 abline(h = 0, lty = 2)
+rect(0.5, -10000, 10.5, 10000, density = 10)
+highlighted_data <- test_data[test_data$time_elapsed_bins %in% levels(test_data$time_elapsed_bins)[1:10],]
+rmse_gaussian_highlighted_test <- sqrt(mean(highlighted_data$glm_model_residuals_gaussian^2))
+mae_gaussian_highlighted_test <- mean(abs(highlighted_data$glm_model_residuals_gaussian))
+max_y <- max(test_data$glm_model_residuals_gaussian)
+text(5, max_y - max_y/10, paste("RMSE:", round(rmse_gaussian_highlighted_test, 2)), font = 2, cex = 1.5)
+text(5, max_y - max_y/5, paste("MAE:", round(mae_gaussian_highlighted_test, 2)), font = 2, cex = 1.5)
+
 boxplot(test_data$glm_model_residuals_poisson ~ test_data$time_elapsed_bins, col = "blue", xlab = "Time Elapsed", ylab = "Residuals", main = "Poisson Model")
 abline(h = 0, lty = 2)
+rect(0.5, -10000, 10.5, 10000, density = 10)
+highlighted_data <- test_data[test_data$time_elapsed_bins %in% levels(test_data$time_elapsed_bins)[1:10],]
+rmse_poisson_highlighted_test <- sqrt(mean(highlighted_data$glm_model_residuals_poisson^2))
+mae_poisson_highlighted_test <- mean(abs(highlighted_data$glm_model_residuals_poisson))
+max_y <- max(test_data$glm_model_residuals_poisson)
+text(5, max_y - max_y/10, paste("RMSE:", round(rmse_poisson_highlighted_test, 2)), font = 2, cex = 1.5)
+text(5, max_y - max_y/5, paste("MAE:", round(mae_poisson_highlighted_test, 2)), font = 2, cex = 1.5)
+
 boxplot(test_data$glm_model_residuals_gamma ~ test_data$time_elapsed_bins, col = "green", xlab = "Time Elapsed", ylab = "Residuals", main = "Gamma Model")
 abline(h = 0, lty = 2)
+rect(0.5, -10000, 10.5, 10000, density = 10)
+highlighted_data <- test_data[test_data$time_elapsed_bins %in% levels(test_data$time_elapsed_bins)[1:10],]
+rmse_gamma_highlighted_test <- sqrt(mean(highlighted_data$glm_model_residuals_gamma^2))
+mae_gamma_highlighted_test <- mean(abs(highlighted_data$glm_model_residuals_gamma))
+max_y <- max(test_data$glm_model_residuals_gamma)
+text(5, max_y - max_y/10, paste("RMSE:", round(rmse_gamma_highlighted_test, 2)), font = 2, cex = 1.5)
+text(5, max_y - max_y/5, paste("MAE:", round(mae_gamma_highlighted_test, 2)), font = 2, cex = 1.5)
 
 par(mfrow = c(1, 1))
