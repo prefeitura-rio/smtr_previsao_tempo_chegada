@@ -11,6 +11,8 @@ library(knitr)
 library(fixest)
 library(data.table)
 library(randomForest)
+library(ranger)
+library(neuralnet)
 
 # projeto google cloud
 set_billing_id("absolute-text-417919") 
@@ -19,12 +21,18 @@ set_billing_id("absolute-text-417919")
 source <- "F:/Dados/SMTR"
 ```
 
-Lendo os dados: base de treino, de 04/03/2024 a 08/03/2024 (dias de semana), e base de teste, de 11/03/2024 a 12/04/2024. Tiro outliers com tempo de chegada acima de 1h e distância ao próximo ponto acima de 1km.
+Lendo os dados: base de treino, de 04/03/2024 a 08/03/2024 (dias de semana), e base de teste, de 11/03/2024 a 12/04/2024.
 
 ```{r, message = FALSE}
-training_data <- fread(file.path(source, "gps_training_1_10.csv"))
+training_data <- fread(file.path(source, "gps_training_1_10.csv")) %>%
+    slice_sample(n = 1000000)
 
-test_data <- fread(file.path(source, "gps_test_1_10.csv"))
+test_data <- fread(file.path(source, "gps_test_1_10.csv")) %>%
+    slice_sample(n = 1000000)
+
+training_data$hora <- as.numeric(substr(training_data$hora, 1, 2))
+
+test_data$hora <- as.numeric(substr(test_data$hora, 1, 2))
 ```
 
 ## Medidas de erro
@@ -98,21 +106,23 @@ prediction_errors <- function(df, modelo) {
 }
 ```
 
-
-```{r, echo = FALSE}
+```{r, message = FALSE}
 bench <- training_data %>%
     summarise(
         est_arrival_time = mean(arrival_time, na.rm = TRUE),
         .by = c("servico", "stop_id", "stop_order")
     )
+```
 
+
+```{r, echo = FALSE, message = FALSE}
 bench <- test_data %>%
     left_join(bench, by = c("servico", "stop_id", "stop_order"))
 
 bench <- prediction_errors(bench, "Médias históricas")
 
 models <- models %>%
-    bind_rows(bench[1,])
+    bind_rows(bench[1,-1])
 
 kable(bench, digits = 1)
 ```
@@ -124,16 +134,19 @@ kable(bench, digits = 1)
 \widehat{y}_i = \frac{\text{distância até o próx. ponto}}{\text{velocidade média últimos 10mins}}
 \]
 
-```{r, echo = FALSE}
+```{r, message = FALSE}
 newton <- test_data %>%
     mutate(
         est_arrival_time = 60/1000 * dist_to_stop/velocidade_estimada_10_min
     )
+```
 
+
+```{r, echo = FALSE}
 newton <- prediction_errors(newton, "Newtoniano")
 
 models <- models %>%
-    bind_rows(newton[1,])
+    bind_rows(newton[1,-1])
 
 kable(newton, digits = 1)
 ```
@@ -141,141 +154,167 @@ kable(newton, digits = 1)
 ## Regressão linear
 
 \[
-\log(\widehat{y}_i) = \alpha + \beta\,\log(\text{distância}) + \gamma\,\log(v_\text{10mins}) + \delta\, \log(v_\text{inst} + 1)
+\widehat{y}_i = \alpha_{i, t, \text{parada}} + \beta\,\text{distância} + \gamma\,v_\text{10mins} + \delta\, v_\text{inst}
 \]
 
-```{r, echo = FALSE}
-reg_newton <- lm(
-    log(arrival_time) ~ log(dist_to_stop) + log(velocidade_estimada_10_min) 
-    + log(velocidade_instantanea + 1),
+```{r, message = FALSE}
+reg_newton <- feols(
+    arrival_time ~ dist_to_stop + velocidade_estimada_10_min + velocidade_instantanea |
+        servico + hora + stop_id + stop_order,
     data = training_data
 )
+```
 
+
+```{r, echo = FALSE}
 reg_newton <- test_data %>%
     bind_cols("est_arrival_time" = predict(reg_newton, test_data)) %>%
     mutate(error = (arrival_time - est_arrival_time)) %>%
-    prediction_errors("Regressão simples")
+    prediction_errors("Regressão")
 
 models <- models %>%
-    bind_rows(reg_newton[1,])
+    bind_rows(reg_newton[1,-1])
 
 kable(reg_newton, digits = 1)
 ```
 
-## Regressão com Efeitos Fixos
+## Regressão linear com interações
 
 \[
-\log(\widehat{y}_i) = \alpha_{\text{serviço, ponto}} + \beta\,\log(\text{distância}) + \gamma\,\log(\text{velocidade 10mins})
+\widehat{y}_i = \alpha_{i, t, \text{parada}} + \beta_{i, t, \text{parada}}\,\text{distância} + \gamma\,v_\text{10mins} + \delta\, v_\text{inst}
 \]
 
-```{r, echo = FALSE}
-training_data <- training_data %>%
-    mutate(hora = stringr::str_split(hora, ":", simplify = TRUE) %>% {.[,1]})
-
-test_data <- test_data %>%
-    mutate(hora = stringr::str_split(hora, ":", simplify = TRUE) %>% {.[,1]})
-
-# Estimando
-
+```{r, message = FALSE}
 fe_reg <- feols(
-    log(arrival_time) ~ log(dist_to_stop) + log(velocidade_estimada_10_min) 
-    + log(velocidade_instantanea + 1) | servico^stop_id,
-    data = training_data,
-    combine.quick = FALSE
+    arrival_time ~ dist_to_stop + velocidade_estimada_10_min + velocidade_instantanea |
+        servico[dist_to_stop] + hora[dist_to_stop] + stop_id[dist_to_stop] + stop_order[dist_to_stop],
+    data = training_data
 )
+```
 
+
+```{r, echo = FALSE}
 # Calculando performance
 
 fe_reg <- test_data %>%
     bind_cols("est_arrival_time" = predict(fe_reg, test_data)) %>%
-    prediction_errors("EF de serviço-ponto")
+    prediction_errors("Regressão com interações")
 
 models <- models %>%
-    bind_rows(fe_reg[1,])
+    bind_rows(fe_reg[1,-1])
 
 kable(fe_reg, digits = 1)
-```
-
-## Regressão com Efeitos Fixos incluindo horários
-
-\[
-\log(\widehat{y}_i) = \alpha_{\text{serviço, ponto}} + \alpha_{\text{hora, ponto}} + \beta\,\log(\text{distância}) + \gamma\,\log(\text{velocidade 10mins})
-\]
-
-```{r, echo = FALSE}
-# Estimando
-
-fe_reg_hora <- feols(
-    log(arrival_time) ~ log(dist_to_stop) + log(velocidade_estimada_10_min)
-    + log(velocidade_instantanea + 1) | servico^stop_id + stop_id^hora,
-    data = training_data,
-    combine.quick = FALSE
-)
-
-# Calculando performance
-
-fe_reg_hora <- test_data %>%
-    bind_cols("est_arrival_time" = predict(fe_reg_hora, test_data)) %>%
-    prediction_errors("EF de serviço-ponto e ponto-hora")
-
-models <- models %>%
-    bind_rows(fe_reg_hora[1,])
-
-kable(fe_reg_hora, digits = 1)
 ```
 
 ## Random Forest
 
 ```{r, message = FALSE}
-training_data <- training_data %>%
-    mutate(across(hora, as.numeric)) %>%
-    mutate(across(stop_id, as.factor))
 
-test_data <- test_data %>%
-    mutate(across(hora, as.numeric)) %>%
-    mutate(across(stop_id, as.factor))
-
-training_subset <- training_data %>%
-    slice_sample(prop = 0.05)
-
-y <- training_subset %>%
-    select(arrival_time) %>%
-    unlist()
-
-x <- training_subset %>%
-    select(
-        hora, latitude, longitude,
-        velocidade_instantanea, velocidade_estimada_10_min, distancia,
-        dist_traveled_shape, dist_to_stop, stop_order
-    ) %>%
-    as.matrix()
-
-rf <- randomForest(
-    x = x, y = y,
-    proximity = FALSE,
-    keep.forest = TRUE,
-    importance = TRUE,
-    do.trace = TRUE,
-    ntree = 1000,
-    maxnodes = 24
+rf <- ranger(
+    arrival_time ~ hora + latitude + longitude + velocidade_instantanea + velocidade_estimada_10_min +
+        dist_traveled_shape + dist_to_stop + stop_order + stop_sequence,
+    data = training_data,
+    num.trees = 300,
+    max.depth = 20
 )
+```
 
-x_test <- test_data %>%
-    select(
-        hora, latitude, longitude,
-        velocidade_instantanea, velocidade_estimada_10_min, distancia,
-        dist_traveled_shape, dist_to_stop, stop_order
-    )
+
+```{r, echo = FALSE}
 
 rf <- test_data %>%
-    bind_cols("est_arrival_time" = predict(rf, x_test)) %>%
+    bind_cols("est_arrival_time" = predict(rf, test_data)$predictions) %>%
     prediction_errors("Random Forest")
 
 models <- models %>%
-    bind_rows(rf[1,])
+    bind_rows(rf[1,-1])
 
 kable(rf, digits = 1)
 ```
+
+## Rede Neural
+
+```{r}
+training_data <- training_data %>%
+    slice_sample(n = 10000)
+
+y_train <- training_data$arrival_time
+
+x_train <- training_data %>%
+    select(
+        hora, latitude, longitude, velocidade_instantanea, velocidade_estimada_10_min,
+        dist_traveled_shape, dist_to_stop, stop_sequence, stop_order
+    ) %>%
+    as.matrix()
+
+y_test <-  test_data$arrival_time
+
+x_test <- test_data %>%
+    select(
+        hora, latitude, longitude, velocidade_instantanea, velocidade_estimada_10_min,
+        dist_traveled_shape, dist_to_stop, stop_sequence, stop_order
+    ) %>%
+    as.matrix()
+
+# computando medias e desvios padrão do treino para normalizar
+
+y_mean <- mean(y_train)
+
+y_sd <- sd(y_train)
+
+x_mean <- colMeans(x_train)
+
+x_sd <- apply(x_train, 2, sd)
+
+# normalizando bases
+
+y_train <- (y_train - y_mean)/y_sd
+
+x_train <- t((t(x_train) - x_mean)/x_sd)
+
+y_test <- (y_test - y_mean)/y_sd
+
+x_test <- t((t(x_test) - x_mean)/x_sd)
+
+# convertendo de volta em data frame
+
+training_data <- data.frame(
+    "arrival_time" = y_train, x_train
+)
+
+test_data <- data.frame(
+    "arrival_time" = y_test, x_test
+)
+
+# treinando a rede
+
+nn <- neuralnet(
+    arrival_time ~ hora + latitude + longitude + velocidade_instantanea + velocidade_estimada_10_min +
+        dist_traveled_shape + dist_to_stop + stop_order + stop_sequence,
+    data = training_data,
+    hidden = 5,
+    lifesign = "full",
+    stepmax = 1e+06,
+    threshold = 0.1
+)
+
+# previsões
+# desnormalizando
+
+pred <- predict(nn, test_data) * y_sd + y_mean
+
+nn <- test_data %>%
+    bind_cols("est_arrival_time" = pred) %>%
+    mutate(stop_order = round(stop_order * x_sd["stop_order"] + x_mean["stop_order"])) %>%
+    mutate(arrival_time = arrival_time * y_sd + y_mean) %>%
+    prediction_errors("Neural Network")
+
+models <- models %>%
+    bind_rows(nn[1,-1])
+
+kable(nn, digits = 1)
+```
+
 
 ## Comparativo
 

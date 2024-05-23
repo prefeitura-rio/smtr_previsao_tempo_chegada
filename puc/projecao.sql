@@ -106,7 +106,6 @@ GPS as (
     from `rj-smtr.br_rj_riodejaneiro_veiculos.gps_sppo`
     where data between {start_date} and {end_date}
         and flag_em_operacao = TRUE
-        and hora < "14:00:00" and hora > "12:00:00"
 ),
         
 -----------------------------
@@ -123,7 +122,7 @@ AuxDump as (
 ),
 
 AuxLines as (
-    select * from AuxDump
+    select * except(shape, dump) from AuxDump
     join UNNEST(AuxDump.dump) lines with offset
 ),
 
@@ -283,16 +282,11 @@ GPSShapesDesem as (
 
 AuxNextStop as (
     select distinct id_veiculo, timestamp_gps, g.data as data,
-        g.shape_id as shape_id, dist_traveled_stop, stop_id
+        g.shape_id as shape_id, dist_traveled_stop, stop_id, stop_sequence
     from GPSShapesDesem g
         left join GTFSStops s on
             g.data = s.data and g.servico = s.servico and g.shape_id = s.shape_id
             and g.dist_traveled_shape < s.dist_traveled_stop
-    qualify
-        ROW_NUMBER() over (
-        partition by id_veiculo, shape_id, timestamp_gps, stop_id
-        order by id_veiculo, shape_id, timestamp_gps, stop_id, dist_traveled_stop
-        ) = 1
 ),
 
 -- há pontos que aparecem mais de uma vez na mesma rota (stop_ids repetidas)
@@ -399,7 +393,7 @@ GPSArrivalTime as (
         and arrival_time is not null
 )
         
-select * from GPSArrivalTime
-    where stop_order = 1-- and arrival_time > 100-- and hora > "9:00:00" and hora < "10:00:00"
-    --    and arrival_time < 60
-    --    and tipo_parada is null
+select * except(hora),
+    TIME_TRUNC(hora, HOUR) as hora
+    from GPSArrivalTime
+    where stop_order <= 10
