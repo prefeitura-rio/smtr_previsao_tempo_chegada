@@ -27,8 +27,15 @@ class GPSHandler:
                 df = pd.read_csv(f"{self.gps_folder_path}/{file}")
                 self.gps_df = pd.concat([self.gps_df, df])
 
+        # Drop unnecessary columns
+        unnecessary_columns = ['modo', 'flag_em_operacao', 'flag_linha_existe_sigmob', 'flag_trajeto_correto', 'flag_trajeto_correto_hist', 'versao']
+        self.gps_df = self.gps_df.drop(columns=unnecessary_columns)
+
         # Sort the dataframe by timestamp_gps
         self.gps_df = self.gps_df.sort_values(by='timestamp_gps')
+
+        # Re-index the dataframe
+        self.gps_df = self.gps_df.reset_index(drop=True)
 
         print("GPS data loaded successfully!")
 
@@ -39,6 +46,10 @@ class GPSHandler:
     def get_bus_data(self, bus_id):
         # Get the data for a specific bus
         self.gps_df = self.gps_df[self.gps_df['id_veiculo'] == bus_id]
+
+        # Re-index the dataframe
+        self.gps_df = self.gps_df.reset_index(drop=True)
+
         return self.gps_df
 
     # def filter_by_bus(): # FILTER according to the amount/frequency/time window of the data collected by each bus
