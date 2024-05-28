@@ -28,6 +28,10 @@ class GTFSHandler:
         print("GTFS data loaded successfully!")
 
     def filter_by_route(self, route_short_name):
+
+        print(f"Filtering the data by the route {route_short_name}...")
+        print("DF ROUTE ID HEAD:", self.routes[self.routes['route_short_name'] == route_short_name].head())
+
         # Get the route id
         self.route_id = self.routes[self.routes['route_short_name'] == route_short_name]['route_id'].values[0]
 
@@ -54,12 +58,15 @@ class GTFSHandler:
 
         # Filter the shapes data by the route trips
         self.route_shape_ids = self.route_trips['shape_id'].unique()
+
+        assert len(self.route_shape_ids) >= 1, "The route must have at least one shape!"
+
         self.route_shapes = self.shapes[self.shapes['shape_id'].isin(self.route_shape_ids)]
         self.route_shape_points = [tuple(x) for x in self.route_shapes[['shape_pt_lon', 'shape_pt_lat']].values]
         self.route_shape_segments = [tuple(self.route_shape_points[i:i+2]) for i in range(len(self.route_shape_points)-1)]
 
     def get_route_segments_by_direction(self, direction_id):
-        assert len(self.route_shape_ids) > 1, "Please filter the data by a route first!"
+        assert len(self.route_shape_ids) >= 1, "Please filter the data by a route first!"
 
         # Get the shape ids for the direction
         shape_ids = self.route_trips[self.route_trips['direction_id'] == direction_id]['shape_id'].unique()
@@ -73,7 +80,7 @@ class GTFSHandler:
         return shape_segments
     
     def get_shape_by_direction(self, direction_id):
-        assert len(self.route_shape_ids) > 1, "Please filter the data by a route first!"
+        assert len(self.route_shape_ids) >= 1, "Please filter the data by a route first!"
 
         # Get the shape ids for the direction
         shape_ids = self.route_trips[self.route_trips['direction_id'] == direction_id]['shape_id'].unique()
@@ -81,9 +88,9 @@ class GTFSHandler:
         # Get the shape for the direction
         return self.shapes[self.shapes['shape_id'].isin(shape_ids)]
 
-    def plot_route(self, title='Route'):
+    def plot_route(self, title='Route', save_path=None):
         
-        assert len(self.route_shape_ids) > 1, "Please filter the data by a route first!"
+        assert len(self.route_shape_ids) >= 1, "Please filter the data by a route first!"
 
         fig, ax = plt.subplots(1, 1, figsize=(10, 8))
         
@@ -106,7 +113,13 @@ class GTFSHandler:
         plt.legend()
         plt.grid()
 
-        plt.show()
+        if save_path:
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+        # Close the plot
+        plt.close()
 
     def get_stops_by_direction(self):
         # Get the route directions

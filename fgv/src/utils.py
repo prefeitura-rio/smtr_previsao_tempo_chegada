@@ -235,7 +235,7 @@ def infer_bus_direction(distance_traveled_inbound, distance_traveled_outbound, t
         return -1
     
 @jit(nopython=True)
-def assign_direction(gps_in_route, gps_distance_dir_0, gps_distance_dir_1, N=5):
+def assign_direction(gps_in_route, gps_distance_dir_0, gps_distance_dir_1, N=5, terminal_tolerance=500):
     """
     Assigns the direction to a GPS point based on the distance from the start of the route.
     
@@ -258,6 +258,11 @@ def assign_direction(gps_in_route, gps_distance_dir_0, gps_distance_dir_1, N=5):
         if gps_in_route[i] == False:
             continue
 
+        # If the GPS point is too far from a terminal, don't allow direction changes
+        if i > 1 and result[i-1] != -1 and (gps_distance_dir_0[i] > terminal_tolerance and gps_distance_dir_1[i] > terminal_tolerance):
+            result[i] = result[i-1]
+            continue
+
         # Get the last N elements of each direction
         result[i] = infer_bus_direction(gps_distance_dir_0[i-N:i], gps_distance_dir_1[i-N:i])
         if result[i] != -1:
@@ -274,7 +279,7 @@ def assign_direction(gps_in_route, gps_distance_dir_0, gps_distance_dir_1, N=5):
     return result, directly_infered
 
 @jit(nopython=True)
-def assign_distance_traveled(gps_in_route, gps_direction, gps_distance_dir_0, gps_distance_dir_1):
+def assign_distance_traveled(gps_timestamp, gps_in_route, gps_direction, gps_distance_dir_0, gps_distance_dir_1):
     """
     Assigns the distance traveled to each GPS point based on the infered direction.
 
@@ -292,15 +297,33 @@ def assign_distance_traveled(gps_in_route, gps_direction, gps_distance_dir_0, gp
     distance_traveled = np.zeros(len(gps_in_route))
     cumulative_distance_traveled = np.zeros(len(gps_in_route))
 
+    # Initialize arrays to store the time spent and the cumulative time spent
+    time_spent = np.zeros(len(gps_in_route), dtype=np.int64)
+    cumulative_time_spent = np.zeros(len(gps_in_route), dtype=np.int64)
+
     # Initialize the distance offset (to compensate direction changes)
     distance_offset = 0
 
     # Iterate over the GPS points
     for i in range(len(gps_in_route)):
 
-        # If the GPS point is not in the route, set the distance traveled to 0
+        # Detect direction changes, and update the distance and time offset
+        if i > 0:
+            time_spent[i] = (gps_timestamp[i] - gps_timestamp[i-1])
+
+            if gps_direction[i] != gps_direction[i-1]:
+                distance_offset += distance_traveled[i-1]
+                cumulative_time_spent[i] = time_spent[i]
+            else:
+                cumulative_time_spent[i] = cumulative_time_spent[i-1] + time_spent[i]
+
+        # Reset the values if the day changed
+        if i > 0 and gps_timestamp[i] // 86400 != gps_timestamp[i-1] // 86400:
+            distance_offset = 0
+
+        # If the GPS point is not in the route, pass (default distance is 0)
         if gps_in_route[i] == False:
-            distance_traveled[i] = 0
+            pass
         # Otherwise, set the distance traveled based on the direction (or 0, if the direction is unknown)
         else:
             if gps_direction[i] == 0:
@@ -310,65 +333,12 @@ def assign_distance_traveled(gps_in_route, gps_direction, gps_distance_dir_0, gp
             else:
                 distance_traveled[i] = 0
 
-        # Detect direction changes, and update the distance offset
-        if i > 0 and gps_direction[i] != gps_direction[i-1]:
-            distance_offset += distance_traveled[i-1]
         
         # Update the cumulative distance traveled
         cumulative_distance_traveled[i] = distance_traveled[i] + distance_offset
 
     # Return the distance arrays
-    return distance_traveled, cumulative_distance_traveled
-
-# @jit(nopython=True)
-# def assign_mean_speed(gps_in_route, gps_timestamps, gps_cumulative_distance, N=3):
-#     """
-#     Assigns the mean speed to each of the N last GPS segments
-
-#     Args:
-#         gps_timestamps (np.array): Array of timestamps for each GPS point.
-#         gps_in_route (np.array): Array of boolean values indicating if the GPS point is in the route.
-#         gps_cumulative_distance (np.array): Array of cumulative distances traveled for each GPS point.
-#         N (int, optional): Number of last segments to calculate the mean speed. Defaults to 3.
-
-#     Returns:
-#         np.array: Array of mean speeds for each GPS point.
-#     """
-
-#     # Initialize the arrays to store the mean speeds for each segment and the accumulated mean speeds
-#     mean_speeds_matrix = np.zeros((len(gps_timestamps), N), dtype=np.float64)    
-#     accumulated_mean_speeds_matrix = np.zeros((len(gps_timestamps), N), dtype=np.float64)
-
-#     # Iterate over the gps data
-#     for i in range(1, len(gps_timestamps)):
-#         # Skip the points that are not in the route
-#         if gps_in_route[i] == False or gps_in_route[i-1] == False:
-#             continue
-
-#         # If there are not enough points to calculate the mean speed, skip
-#         if i < N:
-#             continue
-
-#         for j in range(0, N):
-#             # Evaluate the mean distance regarding single segments
-#             # In this case, if j = 0, the mean speed is the same as the speed of the last segment
-#             # if j = 1, the mean speed is the average of the 2nd last segment, and so on
-#             time_diff = gps_timestamps[i - j] - gps_timestamps[i - j - 1]
-#             distance_diff = gps_cumulative_distance[i - j] - gps_cumulative_distance[i - j - 1]
-
-#             # Calculate the mean speed (in km/h)
-#             mean_speeds_matrix[i, j] = distance_diff / time_diff * 3.6
-
-#             # Evaluate the mean distance regarding the last segments, the last 2 segments, ...
-#             # In this case, if j = 0, the mean speed is the same as the speed of the last segment
-#             # if j = 1, the mean speed is the average of the last 2 segments, and so on
-#             accumulated_time_diff = gps_timestamps[i] - gps_timestamps[i - j - 1]
-#             accumulated_distance_diff = gps_cumulative_distance[i] - gps_cumulative_distance[i - j - 1]
-
-#             # Calculate the accumulated mean speed (in km/h)
-#             accumulated_mean_speeds_matrix[i, j] = accumulated_distance_diff / accumulated_time_diff * 3.6
-
-#     return mean_speeds_matrix, accumulated_mean_speeds_matrix
+    return distance_traveled, cumulative_distance_traveled, time_spent, cumulative_time_spent
 
 @jit(nopython=True)
 def assign_mean_speed(gps_in_route, gps_timestamps, gps_cumulative_distance, N=3):
@@ -541,20 +511,26 @@ def generate_virtual_point(initial_distance, final_distance, initial_cumulative_
     virtual_timestamp = map_distance_into_timestamp(stop_distances[stop_num], initial_distance, final_distance, initial_timestamp, final_timestamp)
     virtual_distance = stop_distances[stop_num]
 
-    # Assert if both values are valid
-    assert virtual_timestamp >= initial_timestamp and virtual_timestamp <= final_timestamp, f"TIMESTAMP ERROR: {virtual_timestamp} {initial_timestamp} {final_timestamp}"
-    assert virtual_distance >= initial_distance and virtual_distance <= final_distance, f"DISTANCE ERROR: {virtual_distance} {initial_distance} {final_distance}"
+    try:
 
-    next_stop_index = min(stop_num + 1, len(stop_distances) - 1)
+        # Assert if both values are valid
+        assert virtual_timestamp >= initial_timestamp and virtual_timestamp <= final_timestamp, f"TIMESTAMP ERROR: {virtual_timestamp} {initial_timestamp} {final_timestamp}"
+        assert virtual_distance >= initial_distance and virtual_distance <= final_distance, f"DISTANCE ERROR: {virtual_distance} {initial_distance} {final_distance}"
 
-    # Append the virtual datapoints to alist
-    return [virtual_timestamp, # timestamp
-            virtual_distance, # distance_traveled
-            initial_cumulative_distance + (virtual_distance - initial_distance), # cumulative_distance_traveled
-            direction, # direction
-            stop_num, # current_stop_index
-            # next_stop_index, # next_stop_index (to avoid out of bounds error)
-            stop_distances[next_stop_index] - stop_distances[stop_num]] # next_stop_distance
+        next_stop_index = min(stop_num + 1, len(stop_distances) - 1)
+
+        # Append the virtual datapoints to alist
+        return [virtual_timestamp, # timestamp
+                virtual_distance, # distance_traveled
+                initial_cumulative_distance + (virtual_distance - initial_distance), # cumulative_distance_traveled
+                direction, # direction
+                stop_num, # current_stop_index
+                # next_stop_index, # next_stop_index (to avoid out of bounds error)
+                stop_distances[next_stop_index] - stop_distances[stop_num]] # next_stop_distance
+    
+    except AssertionError as e:
+        print(e)
+        return None
 
 def virtualize_stop_points(gps_timestamps, gps_in_route, gps_direction, gps_last_stop_index, gps_next_stop_index, gps_distances, gps_cumulative_distances, mean_speeds, stops_distances_by_direction, vehicle_id, service_id):
 
@@ -628,6 +604,10 @@ def virtualize_stop_points(gps_timestamps, gps_in_route, gps_direction, gps_last
                 # Generate a virtual datapoint for each stop
                 virtual_datapoint = generate_virtual_point(initial_distance, final_distance, initial_cumulative_distance, initial_timestamp, final_timestamp, stop_num, stop_distances, gps_direction[i])
 
+                # Check if the virtual datapoint is valid
+                if virtual_datapoint is None:
+                    continue
+
                 # Append the mean and accumulated mean speeds to the virtual datapoint (the same as the current datapoint)
                 for j in range(mean_speeds.shape[1]):
                     virtual_datapoint.append(mean_speeds[i, j])
@@ -662,3 +642,62 @@ def virtualize_stop_points(gps_timestamps, gps_in_route, gps_direction, gps_last
 
     # Return the dataframe that contains the virtual datapoints
     return virtual_df
+
+def process_bus_data(gps, gtfs, vehicle, route, bus_output_path):
+    # Plot bus data
+    gps.plot_gps_data(title=f"GPS data from bus {vehicle} (route {route})", save_path=bus_output_path + "gps_data.png")
+    
+    # Filter gps coordinates
+    gps.filter_gps_coordinates(gtfs)
+
+    # Plot fitered bus data
+    gps.plot_gps_data(gps.gps_df[gps.gps_df["in_route"] == True], gtfs.route_shape_segments, title=f"Filtered GPS data from bus {vehicle} (route {route})", save_path=bus_output_path + "filtered_gps_data.png")
+
+    # Assign the distances from the route start
+    gps.get_distance_from_start(gtfs)
+
+    # Plot the histogram with the distances from the start
+
+    # Assign the direction and direction inference to each GPS point
+    gps.gps_df['direction'], gps.gps_df['direction_directly_infered'] = assign_direction(gps.gps_df['in_route'].to_numpy(), gps.gps_df['distance_from_start_0'].to_numpy(), gps.gps_df['distance_from_start_1'].to_numpy(), N=3)
+
+    # Plot the distances/directions infered
+
+    # Assign the distance traveled to each GPS point based on the inferred direction
+    gps.gps_df['distance_traveled'], gps.gps_df['cumulative_distance_traveled'] = assign_distance_traveled(gps.gps_df['in_route'].to_numpy(), gps.gps_df['direction'].to_numpy(), gps.gps_df['distance_from_start_0'].to_numpy(), gps.gps_df['distance_from_start_1'].to_numpy())
+
+    # Plot a histogram of distance traveled and cumulative distance traveled
+
+    # Get stops by direction
+    gtfs.get_stops_by_direction()
+
+    # Assign stops to the GPS data
+    gps.gps_df['last_stop_index'], gps.gps_df['next_stop_index'], gps.gps_df['last_stop_distance'], gps.gps_df['next_stop_distance'] = assign_stops(gps.gps_df['in_route'].to_numpy(), gps.gps_df['direction'].to_numpy(), gps.gps_df['distance_traveled'].to_numpy(), gtfs.stops_distances_by_direction)
+
+    # Plot a histogram of the last_stop_distance and next_stop_distance
+
+    # Convert the 'timestamp_gps' to datetime
+    gps.gps_df['timestamp_gps'] = pd.to_datetime(gps.gps_df['timestamp_gps'])
+
+    # Assign the mean speed
+    timestamp_array = gps.gps_df['timestamp_gps'].to_numpy()
+    timestamp_seconds_array = (timestamp_array).astype('int64') // 10**9
+
+    gps.gps_df['mean_speed_1_min'] = assign_mean_speed(gps.gps_df['in_route'].to_numpy(), timestamp_seconds_array, gps.gps_df['cumulative_distance_traveled'].to_numpy(), N=1)
+    gps.gps_df['mean_speed_3_min'] = assign_mean_speed(gps.gps_df['in_route'].to_numpy(), timestamp_seconds_array, gps.gps_df['cumulative_distance_traveled'].to_numpy(), N=3)
+    gps.gps_df['mean_speed_5_min'] = assign_mean_speed(gps.gps_df['in_route'].to_numpy(), timestamp_seconds_array, gps.gps_df['cumulative_distance_traveled'].to_numpy(), N=5)
+
+    # Plot a histogram of the mean speeds
+
+    # Generate the validation dataset with virtual/interpolated datapoints
+    gps.validation_df = virtualize_stop_points(gps.gps_df['timestamp_gps'].to_numpy(), gps.gps_df['in_route'].to_numpy(), gps.gps_df['direction'].to_numpy(), gps.gps_df['last_stop_index'].to_numpy(), gps.gps_df['next_stop_index'].to_numpy(), gps.gps_df['distance_traveled'].to_numpy(), gps.gps_df['cumulative_distance_traveled'].to_numpy(), gps.gps_df[['mean_speed_1_min', 'mean_speed_3_min', 'mean_speed_5_min']].to_numpy(), gtfs.stops_distances_by_direction, vehicle, route)
+
+    print(f"PROCESSED: {vehicle} {route} -> {len(gps.gps_df)} / {len(gps.validation_df)}")
+
+    # Save the results
+    gps.gps_df.to_csv(bus_output_path + "raw_processed_gps_data.csv", index=False)
+    gps.gps_df[gps.gps_df['in_route'] == True].to_csv(bus_output_path + "processed_gps_data.csv", index=False)
+    gps.validation_df.to_csv(bus_output_path + "validation_data.csv", index=False)
+
+
+

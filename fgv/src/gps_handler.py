@@ -13,7 +13,25 @@ class GPSHandler:
         self.gps_all_df = pd.DataFrame()
 
         self.gps_df = pd.DataFrame()
-        self.load_data()
+
+    def load_file_data(self, filename):
+    
+        print(f"Loading GPS data from the file {filename} CSV files...")
+
+        if filename.endswith(".csv"):
+            self.gps_all_df = pd.read_csv(f"{self.gps_folder_path}/{filename}")
+
+        # Drop unnecessary columns
+        unnecessary_columns = ['modo', 'flag_em_operacao', 'flag_linha_existe_sigmob', 'flag_trajeto_correto', 'flag_trajeto_correto_hist', 'versao']
+        self.gps_all_df = self.gps_all_df.drop(columns=unnecessary_columns)
+
+        # Sort the dataframe by timestamp_gps
+        self.gps_all_df = self.gps_all_df.sort_values(by='timestamp_gps')
+
+        # Re-index the dataframe
+        self.gps_all_df = self.gps_all_df.reset_index(drop=True)
+
+        print("GPS data loaded successfully!")
 
     def load_data(self):
 
@@ -21,6 +39,9 @@ class GPSHandler:
         directory_files = os.listdir(self.gps_folder_path)
 
         print(f"Loading GPS data from {len(directory_files)} CSV files...")
+
+        self.gps_all_df = pd.DataFrame()
+        self.gps_df = pd.DataFrame()
 
         # Iterate through all the files in the folder
         for file in directory_files:
@@ -41,25 +62,36 @@ class GPSHandler:
 
         print("GPS data loaded successfully!")
 
+    def get_routes(self):
+        # Get the unique routes
+        return self.gps_all_df['servico'].unique()
+    
+    def get_routes_count(self):
+        # Get the unique routes
+        return self.gps_all_df['servico'].value_counts()
+    
     def show_routes(self):
         # Print the value counts of the routes
-        print(self.gps_all_df['servico'].value_counts())
+        print(self.get_routes_count())
 
         # Get the unique routes
-        routes = self.gps_all_df['servico'].unique()
+        routes = self.get_routes()
 
         print(f"Found {len(routes)} routes:")
         print(routes)
 
         return routes
+    
+    def get_buses(self):
+        # Get the unique buses
+        buses = self.gps_all_df['id_veiculo'].unique()
+
+        return buses
 
     def show_buses(self, route_id, filter_min=None, filter_max=None):
-        # Print the value counts of the buses
-        # print(self.gps_df[self.gps_df['servico'] == route_id]['id_veiculo'].value_counts())
-
         # Get the buses for the route
-        buses = self.gps_all_df['id_veiculo'].unique()
-        buses_value_counts = self.gps_all_df['id_veiculo'].value_counts()
+        buses = self.gps_df['id_veiculo'].unique()
+        buses_value_counts = self.gps_df['id_veiculo'].value_counts()
 
         total_num_buses = len(buses)
 
@@ -95,7 +127,7 @@ class GPSHandler:
 
     # def filter_by_bus(): # FILTER according to the amount/frequency/time window of the data collected by each bus
 
-    def plot_gps_data(self, data=None, route=None, title='GPS Data'):
+    def plot_gps_data(self, data=None, route=None, title='GPS Data', save_path=None):
 
         if data is None:
             data = self.gps_df
@@ -118,7 +150,13 @@ class GPSHandler:
         plt.title(title)
         plt.grid()
 
-        plt.show()
+        if save_path:
+            plt.savefig(save_path)
+        else:
+            plt.show()
+
+        # Close the plot
+        plt.close()
 
     def filter_gps_coordinates(self, gtfs, tolerance_meters=100):
 
@@ -192,6 +230,22 @@ class GPSHandler:
                 
             self.gps_df[f'distance_from_start_{direction}'] = results
 
+    def split_file(self, file_path, file_name):
+        # Split the file into the differente dates "YYYY-MM-DD" and delete the original file
+        raw_file = pd.read_csv(f"{file_path}/{file_name}")
+
+        # Get the unique dates
+        dates = raw_file['data'].unique()
+
+        # Iterate over the dates
+        for date in dates:
+            date_file = raw_file[raw_file['data'] == date]
+
+            # Save the file
+            date_file.to_csv(f"{file_path}/{date}.csv", index=False)
+
+        # Delete the original file
+        os.remove(f"{file_path}/{file_name}")
 
 
 
