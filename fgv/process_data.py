@@ -44,7 +44,7 @@ for file in original_files:
 
         gps.split_file(GPS_FOLDER, file)
 
-        files = os.listdir(GPS_FOLDER)
+    files = os.listdir(GPS_FOLDER)
 
 num_files = len(files)
 
@@ -55,6 +55,8 @@ if OVERWRITE:
     if os.path.exists(output_path):
         print("Deleting the output folder...")
         shutil.rmtree(output_path)
+
+print("Starting the data processing...")
 
 file_counter = 0
 # Iterate over the GPS data files
