@@ -393,7 +393,13 @@ GPSArrivalTime as (
         and arrival_time is not null
 )
         
-select * except(hora),
-    TIME_TRUNC(hora, HOUR) as hora
+select data, servico, latitude, longitude, velocidade_instantanea,
+    velocidade_estimada_10_min, stop_sequence, dist_to_stop,
+    dist_traveled_shape, stop_order, arrival_time, shape_id,
+    EXTRACT(HOUR
+        FROM
+        hora) AS hora,
+    EXTRACT(DAYOFWEEK
+        FROM
+        timestamp_gps) AS day_of_week
     from GPSArrivalTime
-    where stop_order <= 10

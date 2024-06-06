@@ -29,7 +29,7 @@ query <- query %>%
     gsub("\\{start_date\\}", start_date, .) %>%
     gsub("\\{end_date\\}", end_date, .)
 
-#dat <- read_sql(query)
+dat <- read_sql(query)
 
 download(query, path = file.path(source, "gps_test_1_10.csv"))
 
