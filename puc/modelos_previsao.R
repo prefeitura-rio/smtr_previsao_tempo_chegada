@@ -1,11 +1,7 @@
 library(dplyr)
 library(lubridate)
-library(basedosdados)
 library(ranger)
-library(neuralnet)
-
-# projeto google cloud
-set_billing_id("absolute-text-417919") 
+library(keras)
 
 # caminho para os dados mais pesados
 source <- "F:/Dados/SMTR"
@@ -190,21 +186,29 @@ for (file in files) {
     
     # treinando a rede
     
-    nn <- neuralnet(
-        arrival_time ~ hora + latitude + longitude + velocidade_instantanea + velocidade_estimada_10_min +
-            dist_traveled_shape + dist_to_stop + stop_order + stop_sequence + day_of_week,
-        data = train,
-        hidden = 5,
-        lifesign = "full",
-        stepmax = 1e+06,
-        threshold = 0.1,
-        learningrate = 1e-6
-    )
+    nn <- keras_model_sequential() %>%
+        layer_dense(units = 5, activation = "relu", input_shape = 10) %>%
+        layer_dense(units = 1, activation = "linear")
+    
+    nn %>%
+        compile(
+            optimizer = "adam",
+            loss = "mean_squared_error",
+            metrics = "mae"
+        )
+    
+    nn %>%
+        fit(
+            x_train, y_train,
+            epochs = 10,
+            batch_size = 32,
+            validation_data = list(x_test, y_test)
+        )
     
     # previsões
     # desnormalizando
     
-    pred <- predict(nn, test) * y_sd + y_mean
+    pred <- predict(nn, x_test) * y_sd + y_mean
     
     nn <- test %>%
         bind_cols("est_arrival_time" = pred) %>%
