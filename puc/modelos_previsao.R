@@ -1,6 +1,8 @@
 library(dplyr)
 library(lubridate)
 library(basedosdados)
+library(ranger)
+library(neuralnet)
 
 # projeto google cloud
 set_billing_id("absolute-text-417919") 
@@ -69,6 +71,11 @@ for (file in files) {
     
     df <- data.table::fread(file)
     
+    colnames(df) <- c( "data", "servico", "latitude", "longitude", "velocidade_instantanea",
+                       "velocidade_estimada_10_min", "stop_sequence", "dist_to_stop",
+                       "dist_traveled_shape", "stop_order", "arrival_time", "shape_id",
+                       "hora", "day_of_week")
+    
     train <- df %>%
         filter(data <= "2024-05-21")
     
@@ -88,7 +95,7 @@ for (file in files) {
     historical_avg <- train %>%
         summarise(
             est_arrival_time = mean(arrival_time, na.rm = TRUE),
-            .by = c("stop_order", "stop_id", "hora", "day_of_week")
+            .by = c("stop_order", "stop_sequence", "hora", "day_of_week")
         )
     
     # making predictions
@@ -96,7 +103,7 @@ for (file in files) {
     historical_avg <- test %>%
         left_join(
             historical_avg,
-            by = c("stop_order", "stop_id", "hora", "day_of_week")
+            by = c("stop_order", "stop_sequence", "hora", "day_of_week")
         )
     
     # evaluating
@@ -123,7 +130,7 @@ for (file in files) {
     # gerando previsoes
     
     rf <- test %>%
-        bind_cols("est_arrival_time" = predict(rf, test_data)$predictions) %>%
+        bind_cols("est_arrival_time" = predict(rf, test)$predictions) %>%
         prediction_errors("Random Forest", file) %>%
         mutate(num_obs = nrows)
     
@@ -190,7 +197,8 @@ for (file in files) {
         hidden = 5,
         lifesign = "full",
         stepmax = 1e+06,
-        threshold = 0.1
+        threshold = 0.1,
+        learningrate = 1e-6
     )
     
     # previsões

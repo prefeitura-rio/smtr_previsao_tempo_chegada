@@ -403,3 +403,4 @@ select data, servico, latitude, longitude, velocidade_instantanea,
         FROM
         timestamp_gps) AS day_of_week
     from GPSArrivalTime
+    where RAND() < 0.1

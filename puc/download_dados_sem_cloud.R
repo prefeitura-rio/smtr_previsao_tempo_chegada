@@ -46,7 +46,14 @@ for (data in dates) {
         email = "igor.rilave@hotmail.com"
     )
     
-    df <- read_sql(q)
+    table <- bigrquery::bq_project_query(
+        "absolute-text-417919",
+        query = q
+    )
+    
+    df <- bigrquery::bq_table_download(
+        table
+    )
     
     # separando por linha
     

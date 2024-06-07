@@ -1,0 +1,49 @@
+---
+title: "Previsão de chegada dos ônibus"
+author:
+    - Igor Rigolon
+    - Rafael Palis
+    - PUC-Rio
+date: "`r Sys.Date()`"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Introducão
+
+## Objetivos
+
+## Prévia dos resultados
+
+# Construção da base de dados
+
+## Fonte de dados: GTFS
+
+## Fonte de dados: GPS dos ônibus
+
+## Identificando itinerários
+
+## Identificando paradas
+
+## Medindo tempos de chegada
+
+## Caça aos outliers
+
+# Modelos de previsão
+
+## Benchmark: médias históricas
+
+## Random Forest
+
+## Rede neural
+
+# Resultados
+
+# Limitações
+
+## Cobertura das linhas
+
+## Erros de medida
