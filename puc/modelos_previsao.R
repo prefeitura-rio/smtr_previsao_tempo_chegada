@@ -67,6 +67,8 @@ for (file in files) {
     
     df <- data.table::fread(file)
     
+    if (nrow(df) < 1000) next
+    
     colnames(df) <- c( "data", "servico", "latitude", "longitude", "velocidade_instantanea",
                        "velocidade_estimada_10_min", "stop_sequence", "dist_to_stop",
                        "dist_traveled_shape", "stop_order", "arrival_time", "shape_id",
@@ -227,6 +229,8 @@ for (file in files) {
         bind_rows(historical_avg, rf, nn)
 }
 
+readr::write_rds(predictions, "predictions.rds")
+
 # tirando a média ponderada das previsões
 
 predictions <- predictions %>%
@@ -237,3 +241,20 @@ predictions <- predictions %>%
 
 predictions <- predictions %>%
     arrange(Modelo, `Ordem do ponto`)
+
+knitr::kable(
+    predictions %>%
+        filter(`Ordem do ponto` == "Total") %>%
+        select(-`Ordem do ponto`)
+)
+
+predictions <- predictions %>%
+    filter(`Ordem do ponto` != "Total") %>%
+    mutate(across(`Ordem do ponto`, as.numeric))
+
+ggplot(predictions, aes(x = `Ordem do ponto`, y = RMSE, color = Modelo)) +
+    geom_line() +
+    theme_minimal() +
+    scale_x_continuous(breaks = seq(0, 130, 10))
+
+ggsave("output/plot_performance.png")
