@@ -391,11 +391,23 @@ GPSArrivalTime as (
     from GPSStopsFill
     where arrival_time != DATETIME(1970, 1, 1, 0, 0, 0)
         and arrival_time is not null
+),
+
+-- encodar shape_id como números de 1, ..., N por serviço
+
+AuxShapeCodes as (
+    select servico, shape_id, ROW_NUMBER() over(
+            partition by servico
+        ) as shape_code
+    from (
+        select distinct servico, shape_id
+        from GPSArrivalTime
+    )
 )
-        
+
 select data, servico, latitude, longitude, velocidade_instantanea,
     velocidade_estimada_10_min, stop_sequence, dist_to_stop,
-    dist_traveled_shape, stop_order, arrival_time, shape_id,
+    dist_traveled_shape, stop_order, arrival_time, shape_code,
     EXTRACT(HOUR
         FROM
         hora) AS hora,
@@ -403,4 +415,5 @@ select data, servico, latitude, longitude, velocidade_instantanea,
         FROM
         timestamp_gps) AS day_of_week
     from GPSArrivalTime
-    where RAND() < 0.1
+    left join AuxShapeCodes using(servico, shape_id)
+    where RAND() < 0.01 and stop_order <= 20
