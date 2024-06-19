@@ -120,9 +120,74 @@ ggplot(itineraries, aes(geometry = geometry)) +
 
 - Se ainda resta mais de um itinerário possível, descartamos
 
+## Identificando itinerários
+
+- Com os itinerários identificados, a base tem o formato
+
+```{r}
+knitr::kable(
+    data.frame(
+        a = c("A1", "A1", "A2"),
+        b = c("13:00", "13:01", "13:00"),
+        c = c("...", "...", "..."),
+        d = c("S1", "S1", "S2"),
+        e = c("600m", "900m", "200m")
+    ),
+    col.names = c("ID Veículo", "Horário", "...", "Shape ID", "Distância viajada")
+)
+```
+
+<br><br>
+
+- Cerca de 4 milhões de observações por dia, em média
+
 ## Identificando paradas
 
+- Dados do GTFS têm a localização de todas as paradas de um itinerário
+
+- Pegamos as 20 paradas seguintes do ônibus, com base na distância projetada
+
+- Um exemplo: cada observação da base de dados, como
+
+```{r}
+knitr::kable(
+    data.frame(
+        a = c("A1"),
+        b = c("13:00"),
+        c = c("...")
+    ),
+    col.names = c("ID Veículo", "Horário", "...")
+)
+```
+
+## Identificando paradas
+
+- Se transforma em uma observação por ponto
+
+```{r}
+knitr::kable(
+    data.frame(
+        a = c("A1", "A1", "A1"),
+        b = c("13:00", "13:00", "13:00"),
+        c = c("...", "...", "..."),
+        d = c("A", "B", "C"),
+        e = c("200m", "600m", "1100m")
+    ),
+    col.names = c("ID Veículo", "Horário", "...", "Parada", "Distância até a parada")
+)
+```
+
+- A base de GPS tem cerca de 5 milhões de observações/dia, em média
+
+- Se cada ônibus tem 20 pontos pela frente, 100 milhões de observações
+
+- Em um mês, são 3 bilhões de observações -- que de fato obtemos
+
 ## Medindo tempos de chegada
+
+- Queremos adicionar uma nova coluna a base, medindo em quantos minutos cada ônibus chegou a cada ponto
+
+- Registramos o horário em que o ônibus chega ao ponto
 
 ## Caça aos outliers
 
@@ -138,9 +203,7 @@ knitr::kable(
 )
 ```
 
-# Modelos de previsão
-
-## Modelos
+## Observações preservadas
 
 ```{r}
 table_obs <- readr::read_rds("output/table_obs.rds")
@@ -153,32 +216,69 @@ knitr::kable(
 )
 ```
 
+## Tamanho da base final
 
-## Erro Quadrático
+- Base original tem cerca de 5 milhões de obs./dia, em média
 
-```{r, out.width="80%", fig.cap="Raiz do erro quadrático médio"}
-knitr::include_graphics("output/plot_performance_rmse.png")
+- Perdendo 25% (ônibus parados, fora do trajeto, ...) restam 
+
+# Modelos de previsão
+
+## Modelos
+
+- Modelos de regressão
+
+\[
+\text{Tempo de chegada} = F\Big(\text{dist}, \text{veloc}, \text{hora}, \text{trajeto}, \dots \Big)
+\]
+
+- Modelo mais básico/benchmark: Médias históricas
+
+    - Quantos minutos, em média, este serviço leva do ponto A ao ponto B às 17h de uma quinta-feira?
+
+- Modelos mais complexos: Random Forest e Redes Neurais
+
+    - Aproveitam todas as variáveis, espremendo o máximo dos dados
+    
+    - Aprendem relações não-lineares entre as variáveis
+
+## Random Forest
+
+- Árvores de decisão
+
+## Random Forest: um exemplo
+
+```{r, out.width="80%", fig.cap="Uma viagem da linha 309"}
+knitr::include_graphics("output/plot_prediction.png")
 ```
 
-## Erro Absoluto
+## Redes Neurais
 
-```{r, out.width="80%", fig.cap="Erro absoluto médio"}
-knitr::include_graphics("output/plot_performance_mae.png")
+- Combinações lineares entre as variáveis, com funções de ativação não lineares
+
+```{r, out.width="100%", fig.align='left'}
+knitr::include_graphics("output/nn.svg")
 ```
 
-## Erro Percentual
+## Treino e teste
 
-```{r, out.width="80%", fig.cap="Erro percentual absoluto médio"}
-knitr::include_graphics("output/plot_performance_mape.png")
-```
+- Escolhemos maio deste ano para testar os modelos
 
-## Distribuição
+    - Base de treino: 1 a 21 de maio
 
-```{r, out.width="80%", fig.cap="Erro percentual absoluto médio"}
-knitr::include_graphics("output/plot_histogram_rmse.png")
-```
+    - Base de teste: 22 a 31 de maio
 
-## Benchmark: médias históricas
+- Os modelos apenas aprendem com as observações da base de treino
+
+- Base de teste é usada para medir quão bem eles prevêem fora da amostra
+
+- Para ser viável rodar, armazenamos os dados de cada serviço em um arquivo separado
+    
+    - Treinamos um modelo de cada tipo por linha
+
+# Resultados
+
+## Resumo das previsões
 
 ```{r}
 predictions_summ <- readr::read_rds("output/predictions_summ.rds")
@@ -186,23 +286,61 @@ predictions_summ <- readr::read_rds("output/predictions_summ.rds")
 knitr::kable(
     predictions_summ,
     digits = 2,
-    col.names = names(predictions_summ)
+    col.names = names(predictions_summ),
+    format.args = list(big.mark = ".", decimal.mark = ",")
 )
 ```
 
+<br><br>
 
-## Random Forest
+- Random Forest teve melhor desempenho
 
+## Qualidade da previsão em função da distância
 
-## Rede neural
+```{r, out.width="80%", fig.cap="Raiz do erro quadrático médio"}
+knitr::include_graphics("output/plot_performance_rmse.png")
+```
 
-## Arquitetura da rede
+## Qualidade da previsão em função da distância
 
+```{r, out.width="80%", fig.cap="Erro percentual absoluto médio"}
+knitr::include_graphics("output/plot_performance_mape.png")
+```
 
-# Resultados
+## Distribuição dos erros de medida
 
-# Limitações
+```{r, out.width="80%", fig.cap="Raiz do erro quadrático médio"}
+knitr::include_graphics("output/plot_histogram_rmse.png")
+```
+
+## Importância de cada variável
+
+```{r, out.width="80%"}
+knitr::include_graphics("output/plot_variable_importance.png")
+```
+
+# Possíveis próximos passos
 
 ## Cobertura das linhas
 
-## Erros de medida
+- Investigar quais serviços têm maior perda de observações e por que
+
+- Identificamos algumas anomalias nos itinerários do GTFS que levam a perdas
+
+    - Algumas shapes vêm em multilinestrings, e nem sempre é claro se as linestrings estão em ordem ou se se sobrepõem
+
+- Maior dificuldade é em identificar o ID do itinerário nos dados -- talvez seja possível direto pelo GPS
+
+- Pode ser melhor juntas agrupar serviços, ex: 309, SN309 no mesmo, para ter maior volume de dados
+
+## Aprimoramento dos modelos
+
+- Analisar que tipo de observações têm erros de previsão maiores -- de um determinado serviço, em determinado trajeto?
+
+- Diferentes arquiteturas de Redes Neurais podem prever melhor
+
+    - Incluir mais camadas pode ajudar, mas tem maior custo computacional
+    
+    - Tentar diferentes funções de ativações, taxas de aprendizagem
+    
+    - Transformar variáveis em uma série de indicadoras

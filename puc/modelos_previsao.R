@@ -77,7 +77,7 @@ for (file in files) {
         filter(data <= "2024-05-21")
     
     test <- df %>%
-        filter(data > "2024-05-20")
+        filter(data > "2024-05-21")
     
     rm(df)
     
@@ -149,7 +149,7 @@ for (file in files) {
         filter(data <= "2024-05-21")
     
     test <- df %>%
-        filter(data > "2024-05-20")
+        filter(data > "2024-05-21")
     
     rm(df)
     
@@ -219,7 +219,7 @@ for (file in files) {
         filter(data <= "2024-05-21")
     
     test <- df %>%
-        filter(data > "2024-05-20")
+        filter(data > "2024-05-21")
     
     rm(df)
     
@@ -370,7 +370,7 @@ for (file in files) {
         filter(data <= "2024-05-21")
     
     test <- df %>%
-        filter(data > "2024-05-20")
+        filter(data > "2024-05-21")
     
     rm(df)
     

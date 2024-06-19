@@ -120,3 +120,99 @@ readr::write_rds(table_vars, "output/table_vars.rds")
 ## 6) Plotando os modelos ##
 ############################
 
+## estimando rf para o 309
+
+df <- data.table::fread(file.path(source, "linhas", "309.csv"))
+
+train <- df %>%
+    filter(data <= "2024-05-21")
+
+test <- df %>%
+    filter(data > "2024-05-20")
+
+rm(df)
+
+# encoding as factors
+
+train$shape_code <- as.factor(train$shape_code)
+
+test$shape_code <- as.factor(test$shape_code)
+
+###################
+## Random Forest ##
+###################
+
+rf <- ranger(
+    arrival_time ~ hora + latitude + longitude + velocidade_instantanea + velocidade_estimada_10_min +
+        dist_traveled_shape + dist_to_stop + stop_order + stop_sequence +
+        day_of_week + shape_code,
+    data = train,
+    num.trees = 300,
+    max.depth = 0,
+    mtry = 4,
+    importance = "impurity"
+)
+
+# salvando importancia
+
+imp <- rf$variable.importance
+
+var_importance <- data.frame(
+    "Variável" = names(imp),
+    "Importância" = imp
+)
+
+var_importance <- var_importance %>%
+    mutate(Variável = case_match(
+        Variável,
+        "hora" ~ "Hora",
+        "latitude" ~ "Latitude",
+        "longitude" ~ "Longitude",
+        "velocidade_instantanea" ~ "Velocidade instantânea",
+        "velocidade_estimada_10_min" ~ "Velocidade média",
+        "dist_traveled_shape" ~ "Distância viajada",
+        "dist_to_stop" ~ "Distância ao ponto",
+        "stop_order" ~ "Quantos pontos à frente",
+        "stop_sequence" ~ "Número do ponto",
+        "day_of_week" ~ "Dia da semana",
+        "shape_code" ~ "ID do Itinerário"
+    ))
+
+var_importance <- var_importance %>%
+    arrange(-Importância) %>%
+    mutate(Variável = reorder(Variável, Importância, mean))
+
+## Gráfico de variable importance
+
+ggplot(var_importance, aes(x = Importância, y = Variável)) +
+    geom_col(fill = "darkblue", color = "white") +
+    theme_minimal()
+
+ggsave("output/plot_variable_importance.png")
+
+# gerando previsoes
+
+prediction <- test %>%
+    filter(stop_order %in% c(1,5,10,20), shape_code == 1) %>%
+    group_by(stop_order, stop_sequence) %>%
+    slice_head(n = 1)
+
+prediction <- prediction %>%
+    bind_cols("est_arrival_time" = predict(rf, prediction)$predictions)
+
+prediction <- prediction %>%
+    tidyr::pivot_longer(c(arrival_time, est_arrival_time))
+
+prediction <- prediction %>%
+    mutate(`Tempo de chegada` = ifelse(name == "arrival_time", "Real", "Previsão")) %>%
+    mutate(across(`Tempo de chegada`, ~ factor(., levels = c("Real", "Previsão"), ordered= TRUE)))
+
+ggplot(prediction, aes(x = stop_sequence, y = value, color = `Tempo de chegada`, linetype = `Tempo de chegada`)) +
+    geom_line() +
+    theme_minimal() +
+    scale_color_manual(values = c("black", "red")) +
+    scale_linetype_manual(values = c("solid", "longdash")) +
+    facet_wrap(~ stop_order, labeller = labeller(stop_order = ~ paste(., "Pontos à frente")), scales = "free_y") +
+    xlab("Número do ponto") + ylab("Tempo de chegada (minutos)")
+
+ggsave("output/plot_prediction.png")
