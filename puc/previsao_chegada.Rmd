@@ -191,6 +191,18 @@ knitr::kable(
 
 ## Caça aos outliers
 
+- Algumas observações tinham tempos de chegada de muitas horas
+
+- Criamos alguns filtros para:
+
+    - Ônibus que desaparecem por alguns minutos
+    
+    - Ônibus que não mudam de posição
+    
+    - Ônibus distantes do itinerário
+    
+- Nessas observações (túneis, garagem, linha incorreta), não conseguimos identificar os tempos de chegada    
+
 ## Base de validação
 
 ```{r}
@@ -198,9 +210,9 @@ table_vars <- readr::read_rds("output/table_vars.rds")
 
 knitr::kable(
     table_vars,
-    col.names = NULL,
-    caption = "Variáveis"
-)
+    col.names = c("Nome", "Detalhes")
+) %>%
+    kableExtra::kable_styling(font_size = 12)
 ```
 
 ## Observações preservadas
@@ -216,11 +228,11 @@ knitr::kable(
 )
 ```
 
-## Tamanho da base final
+<br><br>
 
-- Base original tem cerca de 5 milhões de obs./dia, em média
+- Perda de cerca de 25%
 
-- Perdendo 25% (ônibus parados, fora do trajeto, ...) restam 
+- Natural que nem todas sejam identificáveis, mas deve haver problemas com alguns serviços
 
 # Modelos de previsão
 
@@ -244,11 +256,23 @@ knitr::kable(
 
 ## Random Forest
 
-- Árvores de decisão
+- Estima muitas árvores de regressão com subamostras; tira a média
 
-## Random Forest: um exemplo
+- Captura relações não-lineares e padrões complexos
 
-```{r, out.width="80%", fig.cap="Uma viagem da linha 309"}
+```{r, out.width="80%", fig.cap="Árvore de regressão para o 309"}
+knitr::include_graphics("output/decision_tree.png")
+```
+
+## Índice de importância das variáveis
+
+```{r, out.width="80%", fig.cap="Linha 309"}
+knitr::include_graphics("output/plot_variable_importance.png")
+```
+
+## Random Forest: erros de previsão
+
+```{r, out.width="80%", fig.cap="Linha 309"}
 knitr::include_graphics("output/plot_prediction.png")
 ```
 
@@ -305,18 +329,6 @@ knitr::include_graphics("output/plot_performance_rmse.png")
 
 ```{r, out.width="80%", fig.cap="Erro percentual absoluto médio"}
 knitr::include_graphics("output/plot_performance_mape.png")
-```
-
-## Distribuição dos erros de medida
-
-```{r, out.width="80%", fig.cap="Raiz do erro quadrático médio"}
-knitr::include_graphics("output/plot_histogram_rmse.png")
-```
-
-## Importância de cada variável
-
-```{r, out.width="80%"}
-knitr::include_graphics("output/plot_variable_importance.png")
 ```
 
 # Possíveis próximos passos

@@ -13,3 +13,5 @@ O repositório consiste nos arquivos:
 * `avaliacao_desempenho.R`: Produz tabelas e gráficos a partir dos resultados dos modelos.
 
 * `/output/`: Armazena os resultados do desempenho dos modelos, e outras estatísticas descritivas.
+
+* `previsao_chegada.Rmd`: Gera o arquivo `previsao_chegada.html`, apresentação de slides com explicação do método e resultados.

@@ -3,6 +3,9 @@ library(ggplot2)
 library(ranger)
 library(deepviz)
 library(basedosdados)
+library(rpart)
+library(rpart.plot)
+library(ISLR)
 
 source <- "F:/Dados/SMTR"
 
@@ -104,13 +107,17 @@ df <- data.table::fread(file.path(source, "linhas", "309.csv"))
 names(df)
 
 table_vars <- data.frame(
-    vars1 = c(
+    nome = c(
         "Data", "Serviço", "Posição do ônibus", "Velocidade instantânea",
-        "Velocidade média", "Número do ponto", "Distância ao ponto"
-    ),
-    vars2 = c(
+        "Velocidade média", "Número do ponto", "Distância ao ponto",
         "Distância viajada", "Quantos pontos à frente", "Tempo de chegada ao ponto",
-        "ID do Itinerário", "Hora", "Dia da semana", ""
+        "ID do Itinerário", "Hora", "Dia da semana"
+    ),
+    desc = c(
+        "data", "código da linha", "longitude e latitude", "km/h", 
+        "km/h, média dos últimos 10mins", "de 1, ..., N", "m",
+        "m", "de 1 a 20", "quantos mins até chegar", "código shape_id",
+        "12h, 13h, ...", "de 1 a 7"
     )
 )
 
@@ -128,7 +135,7 @@ train <- df %>%
     filter(data <= "2024-05-21")
 
 test <- df %>%
-    filter(data > "2024-05-20")
+    filter(data > "2024-05-21")
 
 rm(df)
 
@@ -193,26 +200,37 @@ ggsave("output/plot_variable_importance.png")
 # gerando previsoes
 
 prediction <- test %>%
-    filter(stop_order %in% c(1,5,10,20), shape_code == 1) %>%
-    group_by(stop_order, stop_sequence) %>%
-    slice_head(n = 1)
+    filter(stop_order %in% c(1,5,10,20), shape_code == 1)
 
 prediction <- prediction %>%
     bind_cols("est_arrival_time" = predict(rf, prediction)$predictions)
 
 prediction <- prediction %>%
-    tidyr::pivot_longer(c(arrival_time, est_arrival_time))
+    mutate(error = arrival_time - est_arrival_time)
 
-prediction <- prediction %>%
-    mutate(`Tempo de chegada` = ifelse(name == "arrival_time", "Real", "Previsão")) %>%
-    mutate(across(`Tempo de chegada`, ~ factor(., levels = c("Real", "Previsão"), ordered= TRUE)))
-
-ggplot(prediction, aes(x = stop_sequence, y = value, color = `Tempo de chegada`, linetype = `Tempo de chegada`)) +
-    geom_line() +
+ggplot(prediction, aes(x = error, y = after_stat(density))) +
+    geom_histogram(fill = "darkblue", color = "white") +
     theme_minimal() +
-    scale_color_manual(values = c("black", "red")) +
-    scale_linetype_manual(values = c("solid", "longdash")) +
     facet_wrap(~ stop_order, labeller = labeller(stop_order = ~ paste(., "Pontos à frente")), scales = "free_y") +
-    xlab("Número do ponto") + ylab("Tempo de chegada (minutos)")
+    xlab("Erros de previsão") + ylab("Densidade")
 
 ggsave("output/plot_prediction.png")
+
+#######################
+## Árvore de decisão ##
+#######################
+
+tree <- rpart(
+    arrival_time ~ hora + latitude + longitude + velocidade_instantanea + velocidade_estimada_10_min +
+        dist_traveled_shape + dist_to_stop + stop_order + stop_sequence +
+        day_of_week + shape_code,
+    data = train,
+    control=rpart.control(cp=.0001)
+)
+
+#produce a pruned tree based on the best cp value
+pruned_tree <- prune(tree, cp=0.01)
+
+#plot the pruned tree
+prp(pruned_tree)
+
