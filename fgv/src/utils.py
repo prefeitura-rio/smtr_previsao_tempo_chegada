@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from numba import jit
+from numba import jit # Numba is a Just-In-Time Compiler for Python that works best with python code that uses NumPy arrays and functions.
 
 @jit(nopython=True)
 def project_point_on_segment(px, py, ax, ay, bx, by):
@@ -65,13 +65,13 @@ def squared_distance_to_segment(px, py, ax, ay, bx, by):
         float: The squared distance between the point and the line segment.
     """
     
-    # Get the closest point on the segment
-    closestx, closesty = project_point_on_segment(px, py, ax, ay, bx, by)
+    # Get the closest point on the segment to the point
+    closest_x, closest_y = project_point_on_segment(px, py, ax, ay, bx, by)
     
     # Get the difference between the point and the closest point
-    dx, dy = px - closestx, py - closesty
+    dx, dy = px - closest_x, py - closest_y
 
-    # Return the squared distance
+    # Return the squared distance (to avoid the square root operation)
     return dx * dx + dy * dy
 
 @jit(nopython=True)
@@ -92,7 +92,7 @@ def closest_projection(points, route_segments):
     points = points.astype(np.float32)
     route_segments = np.array(route_segments).astype(np.float32)
 
-    # Get the number of points and segments to iterate over
+    # Get the number of points and route segments to iterate over
     num_points = points.shape[0]
     num_segments = route_segments.shape[0]
 
@@ -104,6 +104,7 @@ def closest_projection(points, route_segments):
     for i in range(num_points):
         for j in range(num_segments):
             # Get the squared distance from the point to the segment
+            # We used the squared distance to avoid the square root operation, as the magnitude is not needed, just the order of the sorted distances
             distance = squared_distance_to_segment(points[i, 0], points[i, 1],
                                                    route_segments[j][0][0], route_segments[j][0][1],
                                                    route_segments[j][1][0], route_segments[j][1][1])
@@ -112,6 +113,7 @@ def closest_projection(points, route_segments):
                 min_squared_distances[i] = distance
                 closest_segment_indexes[i] = j
 
+    # Return the best results for each point
     return min_squared_distances, closest_segment_indexes
 
 @jit(cache=True)
@@ -120,10 +122,10 @@ def get_latitude_meters_coefficient(latitude):
     Get the conversion rate of meters to latitude degrees based on the latitude.
 
     Args:
-        latitude (float): The latitude in degrees.
+        latitude (float): The latitude in degrees, used as reference for the conversion rate.
     
     Returns:
-        float: The conversion rate of meters to latitude degrees.
+        float: The conversion rate of meters to latitude degrees, according to the provided latitude.
     """
 
     # Conversion rate of meters to latitude degrees at the equator
@@ -168,11 +170,11 @@ def degrees_to_meters(degrees, latitude):
 @jit(nopython=True)
 def distance_travelled(px, py, ax, ay, da, bx, by, db):
     """
-    Calculates the distance traveled on a segment given a projected point.
+    Calculates the distance traveled from the beginning of the route segment to the projected point on the segment.
 
     Args:
-        px (float): The x-coordinate of the projected point.
-        py (float): The y-coordinate of the projected point.
+        px (float): The x-coordinate of the point.
+        py (float): The y-coordinate of the point.
         ax (float): The x-coordinate of the segment start point.
         ay (float): The y-coordinate of the segment start point.
         da (float): The distance traveled from the route start to the segment start point.
@@ -214,9 +216,10 @@ def infer_bus_direction(distance_traveled_inbound, distance_traveled_outbound, t
     Args:
         distance_traveled_inbound (np.array): The distance traveled on the inbound route during last records.
         distance_traveled_outbound (np.array): The distance traveled on the outbound route during last records.
+        tolerance (int, optional): The minimum distance difference to infer the direction. Defaults to 100.
 
     Returns:
-        int: The inferred bus direction (0 for inbound, 1 for outbound).
+        int: The inferred bus direction (0 for inbound, 1 for outbound, -1 for unknown).
     """
 
     # Evaluate the mean of the distances traveled among the last records in each direction
@@ -226,11 +229,10 @@ def infer_bus_direction(distance_traveled_inbound, distance_traveled_outbound, t
     # Get the difference between the mean of the distances
     diff_mean_distance_traveled = mean_dist_traveled_inbound - mean_dist_traveled_outbound
 
+    # If a significant difference is found, return the direction with the highest mean distance traveled
     if abs(diff_mean_distance_traveled) > tolerance:
-        if diff_mean_distance_traveled > 0:
-            return 0
-        else:
-            return 1
+        return 0 if diff_mean_distance_traveled > 0 else 1
+    # Otherwise, if the difference is not significant, return -1 for unknown direction
     else:
         return -1
     
@@ -239,15 +241,17 @@ def assign_direction(gps_in_route, gps_distance_dir_0, gps_distance_dir_1, N=5, 
     """
     Assigns the direction to a GPS point based on the distance from the start of the route.
     
-    Parameters:
-    gps_in_route (np.array): Array of boolean values indicating if the GPS point is in the route.
-    gps_distance_dir_0 (np.array): Array of distances traveled on the inbound route.
-    gps_distance_dir_1 (np.array): Array of distances traveled on the outbound route.
+    Args:
+        gps_in_route (np.array): Array of boolean values indicating if the GPS point is in the route.
+        gps_distance_dir_0 (np.array): Array of distances traveled on the inbound route.
+        gps_distance_dir_1 (np.array): Array of distances traveled on the outbound route.
+        N (int, optional): Number of last points to consider for direction inference. Defaults to 5.
+        terminal_tolerance (int, optional): Maximum distance from the terminal to allow direction changes. Defaults to 500.
 
     Returns:
-    np.array: Array of inferred directions for each GPS point (-1 for unknown, 0 for inbound, 1 for outbound)
+        tuple: Arrays of inferred directions and the method used to infer them (directly (using the last N points) or indirectly (using the next direction inference)).
     """
-
+    
     # Initialize the result array with -1 for unknown direction
     result = np.full(len(gps_in_route), -1)
     directly_infered = np.full(len(gps_in_route), False)
@@ -284,13 +288,14 @@ def assign_distance_traveled(gps_timestamp, gps_in_route, gps_direction, gps_dis
     Assigns the distance traveled to each GPS point based on the infered direction.
 
     Args:
+        gps_timestamp (np.array): Array of timestamps for each GPS point.
         gps_in_route (np.array): Array of boolean values indicating if the GPS point is in the route.
         gps_direction (np.array): Array of inferred directions for each GPS point (-1 for unknown, 0 for inbound, 1 for outbound).
         gps_distance_dir_0 (np.array): Array of distances traveled on the inbound route.
         gps_distance_dir_1 (np.array): Array of distances traveled on the outbound route.
 
     Returns:
-        tuple: Arrays of distances traveled and cumulative distances traveled for each GPS point.
+        tuple: Arrays of distance traveled, cumulative distance traveled, time traveled, and cumulative time traveled.
     """
 
     # Initialize arrays to store the distance traveled and the cumulative distance traveled
@@ -388,7 +393,6 @@ def assign_mean_speed(gps_in_route, gps_timestamps, gps_cumulative_distance, N=3
 
                 break
             
-
     # Return the array with the mean speeds
     return mean_speeds
 
@@ -453,10 +457,20 @@ def get_next_stop(gps_distance, stop_distances):
     return get_closest_stop(gps_distance, stop_distances, mode="next")
 
 @ jit(nopython=True)
-def assign_stops(gps_in_route, gps_direction, gps_distance, stops_distances_by_direction, stop_tolerance=20):
+def assign_stops(gps_in_route, gps_direction, gps_distance, stops_distances_by_direction):
     """
     Assigns the stops to the GPS data based on the direction and distance from the start of the route.
+
+    Args:
+        gps_in_route (np.array): Array of boolean values indicating if the GPS point is in the route.
+        gps_direction (np.array): Array of inferred directions for each GPS point (-1 for unknown, 0 for inbound, 1 for outbound).
+        gps_distance (np.array): Array of distances traveled for each GPS point.
+        stops_distances_by_direction (dict): Dictionary of distances to each stop for each direction.
+    
+    Returns:
+        tuple: Arrays of indexes of the last and next stops, and distances to the last and next stops.
     """
+
     # By default, the first direction is the first one in the list
     stop_distances = stops_distances_by_direction[gps_direction[0]]
 
@@ -506,14 +520,33 @@ def map_distance_into_timestamp(current_distance, initial_distance, final_distan
     return (current_distance - initial_distance) * (final_timestamp - initial_timestamp) / (final_distance - initial_distance) + initial_timestamp
 
 def generate_virtual_point(initial_distance, final_distance, initial_cumulative_distance, initial_timestamp, initial_cumulative_time, final_timestamp, stop_num, stop_distances, direction):
+    """
+    Generate a virtual datapoint for a bus stop based on the location of the next stop, simulating the time when the bus would stop at that location.
+
+    Args:
+        initial_distance (float): The distance of the initial GPS datapoint.
+        final_distance (float): The distance of the final GPS datapoint.
+        initial_cumulative_distance (float): The cumulative distance of the initial GPS datapoint.
+        initial_timestamp (int): The timestamp of the initial GPS datapoint.
+        initial_cumulative_time (int): The cumulative time of the initial GPS datapoint.
+        final_timestamp (int): The timestamp of the final GPS datapoint.
+        stop_num (int): The index of the stop to generate the virtual datapoint.
+        stop_distances (np.array): The distances of each stop.
+        direction (int): The direction of the bus.
+
+    Returns:
+        list: The virtual datapoint with the timestamp, distance traveled, cumulative distance traveled, time traveled, cumulative time traveled, direction, current stop index, and next stop distance.
+    """
 
     # Get the timestamp and distance of the virtual datapoint
     virtual_timestamp = map_distance_into_timestamp(stop_distances[stop_num], initial_distance, final_distance, initial_timestamp, final_timestamp)
     virtual_distance = stop_distances[stop_num]
 
     try:
-
         # Assert if both values are valid
+        # It seems obvious that the virtual timestamp should be between the initial and final timestamps
+        # But, in a case of wrong direction inference, the virtual distance probably will be out of bounds
+        # This is a way to avoid this kind of error, as the main can catch this error and skip the virtual datapoint or the entire bus data
         assert virtual_timestamp >= initial_timestamp and virtual_timestamp <= final_timestamp, f"TIMESTAMP ERROR: {virtual_timestamp} {initial_timestamp} {final_timestamp}"
         assert virtual_distance >= initial_distance and virtual_distance <= final_distance, f"DISTANCE ERROR: {virtual_distance} {initial_distance} {final_distance}"
 
@@ -530,7 +563,6 @@ def generate_virtual_point(initial_distance, final_distance, initial_cumulative_
                 initial_cumulative_time + time_diff, # cumulative_time_traveled
                 direction, # direction
                 stop_num, # current_stop_index
-                # next_stop_index, # next_stop_index (to avoid out of bounds error)
                 stop_distances[next_stop_index] - stop_distances[stop_num]] # next_stop_distance
     
     except AssertionError as e:
@@ -538,6 +570,26 @@ def generate_virtual_point(initial_distance, final_distance, initial_cumulative_
         return None
 
 def virtualize_stop_points(gps_timestamps, gps_in_route, gps_direction, gps_last_stop_index, gps_next_stop_index, gps_distances, gps_cumulative_distances, gps_cumulative_time, mean_speeds, stops_distances_by_direction, vehicle_id, service_id):
+    """
+    Generate virtual datapoints for each bus stop based on the location of each stop, simulating the time when the bus would stop at each one.
+
+    Args:
+        gps_timestamps (np.array): Array of timestamps for each GPS point.
+        gps_in_route (np.array): Array of boolean values indicating if the GPS point is in the route.
+        gps_direction (np.array): Array of inferred directions for each GPS point (-1 for unknown, 0 for inbound, 1 for outbound).
+        gps_last_stop_index (np.array): Array of indexes of the last stop for each GPS point.
+        gps_next_stop_index (np.array): Array of indexes of the next stop for each GPS point.
+        gps_distances (np.array): Array of distances traveled for each GPS point.
+        gps_cumulative_distances (np.array): Array of cumulative distances traveled for each GPS point.
+        gps_cumulative_time (np.array): Array of cumulative times traveled for each GPS point.
+        mean_speeds (np.array): Array of mean speeds for each GPS point.
+        stops_distances_by_direction (dict): Dictionary of distances to each stop for each direction.
+        vehicle_id (str): The vehicle identifier.
+        service_id (str): The service identifier.
+
+    Returns:
+        pd.DataFrame: DataFrame with the virtual datapoints for each bus stop.
+    """
 
     # By default, the first direction is the first one in the list
     current_direction = gps_direction[0]
@@ -556,31 +608,12 @@ def virtualize_stop_points(gps_timestamps, gps_in_route, gps_direction, gps_last
         # If the direction changes
         if gps_direction[i] != current_direction:
 
-            # TODO: Generate a virtual datapoint to represent the final station
-            # # As the direction changes, sum the distance of the last station with the amount ran after the direction transition
-            # initial_distance = stop_distances[len(stop_distances) - 1]
-            # virtual_final_distance = stop_distances[len(stop_distances) - 1] + gps_distances[i]
-            # virtual_datapoint = generate_virtual_point(gps_distances[i-1], virtual_final_distance, gps_cumulative_distances[i-1], gps_timestamps[i-1], gps_timestamps[i], len(stop_distances) - 1, stop_distances, current_direction)
-
-            # virtual_datapoints.append(virtual_datapoint)   
-
-
-
+            # TODO: Generate a virtual datapoint to represent the final station (predict the time where the bus will stop at distance=MAX, i.e., the end of the route)
 
             current_direction = gps_direction[i] # Update the current direction
             stop_distances = stops_distances_by_direction[current_direction] # Update the stop distances
 
-
-
-            # TODO: Generate a virtual datapoint for the initial station
-            # if gps_direction[i] != 0 and gps_direction[i] != 1:
-            
-            #     virtual_initial_distance = - [stop_distances[len(stop_distances) - 1] - gps_distances[i-1]] # As the direction changes, sum the distance of the last station with the amount ran before the direction transition
-            #     virtual_datapoint = generate_virtual_point(virtual_initial_distance, gps_distances[i], gps_cumulative_distances[i-1], gps_timestamps[i-1], gps_timestamps[i], 0, stop_distances, current_direction)
-
-            #     virtual_datapoints.append(virtual_datapoint)    
-
-
+            # TODO: Generate a virtual datapoint for the initial station (predict the time where the bus started the movement at distance=0)
 
             continue # To ensure that we have 2 consecutive datapoints with the same direction
 
@@ -649,6 +682,21 @@ def virtualize_stop_points(gps_timestamps, gps_in_route, gps_direction, gps_last
     return virtual_df
 
 def process_bus_data(gps, gtfs, vehicle, route, bus_output_path):
+    """
+    Process the GPS data from a bus, generating the necessary features and saving the results.
+    This is the main pipeline to process the bus data given data from a specific data, route and vehicle.
+
+    Args:
+        gps (GPSData): The GPS data object containing the bus data.
+        gtfs (GTFSData): The GTFS data object containing the route data.
+        vehicle (str): The vehicle identifier.
+        route (str): The route identifier.
+        bus_output_path (str): The path to save the results.
+
+    Returns:
+        None
+    """
+
     # Plot bus data
     gps.plot_gps_data(title=f"GPS data from bus {vehicle} (route {route})", save_path=bus_output_path + "gps_data.png")
     
@@ -661,12 +709,12 @@ def process_bus_data(gps, gtfs, vehicle, route, bus_output_path):
     # Assign the distances from the route start
     gps.get_distance_from_start(gtfs)
 
-    # Plot the histogram with the distances from the start
+    # TODO: Plot the histogram with the distances from the start
 
     # Assign the direction and direction inference to each GPS point
     gps.gps_df['direction'], gps.gps_df['direction_directly_infered'] = assign_direction(gps.gps_df['in_route'].to_numpy(), gps.gps_df['distance_from_start_0'].to_numpy(), gps.gps_df['distance_from_start_1'].to_numpy(), N=3)
 
-    # Plot the distances/directions infered
+    # TODO: Plot the distances/directions infered
 
     # Convert the 'timestamp_gps' to datetime
     gps.gps_df['timestamp_gps'] = pd.to_datetime(gps.gps_df['timestamp_gps'])
@@ -676,7 +724,7 @@ def process_bus_data(gps, gtfs, vehicle, route, bus_output_path):
     # Assign the distance traveled to each GPS point based on the inferred direction
     gps.gps_df['distance_traveled'], gps.gps_df['cumulative_distance_traveled'], gps.gps_df['time_traveled'], gps.gps_df['cumulative_time_traveled']  = assign_distance_traveled(gps.gps_df['timestamp_gps_seconds'].to_numpy(), gps.gps_df['in_route'].to_numpy(), gps.gps_df['direction'].to_numpy(), gps.gps_df['distance_from_start_0'].to_numpy(), gps.gps_df['distance_from_start_1'].to_numpy())
 
-    # Plot a histogram of distance traveled and cumulative distance traveled
+    # TODO: Plot a histogram of distance traveled and cumulative distance traveled
 
     # Get stops by direction
     gtfs.get_stops_by_direction()
@@ -684,13 +732,13 @@ def process_bus_data(gps, gtfs, vehicle, route, bus_output_path):
     # Assign stops to the GPS data
     gps.gps_df['last_stop_index'], gps.gps_df['next_stop_index'], gps.gps_df['last_stop_distance'], gps.gps_df['next_stop_distance'] = assign_stops(gps.gps_df['in_route'].to_numpy(), gps.gps_df['direction'].to_numpy(), gps.gps_df['distance_traveled'].to_numpy(), gtfs.stops_distances_by_direction)
 
-    # Plot a histogram of the last_stop_distance and next_stop_distance
+    # TODO: Plot a histogram of the last_stop_distance and next_stop_distance
 
     gps.gps_df['mean_speed_1_min'] = assign_mean_speed(gps.gps_df['in_route'].to_numpy(), gps.gps_df['timestamp_gps_seconds'].to_numpy(), gps.gps_df['cumulative_distance_traveled'].to_numpy(), N=1)
     gps.gps_df['mean_speed_3_min'] = assign_mean_speed(gps.gps_df['in_route'].to_numpy(), gps.gps_df['timestamp_gps_seconds'].to_numpy(), gps.gps_df['cumulative_distance_traveled'].to_numpy(), N=3)
     gps.gps_df['mean_speed_5_min'] = assign_mean_speed(gps.gps_df['in_route'].to_numpy(), gps.gps_df['timestamp_gps_seconds'].to_numpy(), gps.gps_df['cumulative_distance_traveled'].to_numpy(), N=5)
 
-    # Plot a histogram of the mean speeds
+    # TODO: Plot a histogram of the mean speeds
 
     # Generate the validation dataset with virtual/interpolated datapoints
     gps.validation_df = virtualize_stop_points(gps.gps_df['timestamp_gps'].to_numpy(), gps.gps_df['in_route'].to_numpy(), gps.gps_df['direction'].to_numpy(), gps.gps_df['last_stop_index'].to_numpy(), gps.gps_df['next_stop_index'].to_numpy(), gps.gps_df['distance_traveled'].to_numpy(), gps.gps_df['cumulative_distance_traveled'].to_numpy(), gps.gps_df['cumulative_time_traveled'].to_numpy(), gps.gps_df[['mean_speed_1_min', 'mean_speed_3_min', 'mean_speed_5_min']].to_numpy(), gtfs.stops_distances_by_direction, vehicle, route)
@@ -701,6 +749,3 @@ def process_bus_data(gps, gtfs, vehicle, route, bus_output_path):
     gps.gps_df.to_csv(bus_output_path + "raw_processed_gps_data.csv", index=False)
     gps.gps_df[gps.gps_df['in_route'] == True].to_csv(bus_output_path + "processed_gps_data.csv", index=False)
     gps.validation_df.to_csv(bus_output_path + "validation_data.csv", index=False)
-
-
-
