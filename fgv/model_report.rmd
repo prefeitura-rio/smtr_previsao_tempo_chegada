@@ -27,10 +27,13 @@ library(gridExtra)
 Agora, vamos carregar os dados localizados em 'data/409_train_data.csv'.
 
 ```{r}
-data <- read_csv("data/409_train_data.csv")
+data <- read_csv("data/treated/train/409_train_data_treated.csv")
 
 # Print the first 6 rows of the data
 head(data)
+
+# Set the default theme to theme_minimal
+theme_set(theme_minimal())
 ```
 
 
@@ -70,6 +73,14 @@ data$time_period <- cut(as.numeric(format(as.POSIXct(data$hora, tz = "UTC"), "%H
 head(data)
 ```
 
+
+```{r}
+# Plot a scatter plot of time traveled vs distance traveled
+plot_time_distance <- data %>% ggplot(aes(x = time_traveled, y = distance_traveled, color = as.factor(direction))) +
+  geom_point() +
+  labs(title = "Time traveled vs Distance traveled", x = "Time traveled (s)", y = "Distance traveled (m)")
+
+```
 
 Agora, remover-se-á os dados em que o veículo não tenha percorrido mais de 100 metros da linha. Além disso, é preciso definir um identificador único para cada viagem (trip) que será incrementado cada vez que a direção do veículo mudar. Com isso, será possível identificar cada viagem de forma única e considerar que o ínicío de uma viagem é quando o veículo percorreu mais de 100 metros da linha.
 
@@ -124,7 +135,7 @@ dead_trips <- dead_trips %>% select(id_veiculo, trip_id, data) %>% distinct()
 dead_trips_data <- filtered_data %>% inner_join(dead_trips, by = c("id_veiculo", "trip_id", "data"))
 
 # Plot a scatter plot of time traveled vs distance traveled for the dead trips data
-plot_dead_trips <- dead_trips_data %>% ggplot(aes(x = time_traveled_trip, y = distance_traveled, color = id_veiculo)) +
+plot_dead_trips <- dead_trips_data %>% ggplot(aes(x = time_traveled_trip, y = distance_traveled, color = as.factor(direction))) +
   geom_point() +
   labs(title = "Time traveled vs Distance traveled", x = "Time traveled (s)", y = "Distance traveled (m)")
 
@@ -139,7 +150,7 @@ middle_trips <- filtered_data %>% group_by(id_veiculo, trip_id) %>% filter(time_
 middle_trips_data <- filtered_data %>% inner_join(middle_trips, by = c("id_veiculo", "trip_id", "data"))
 
 # Plot a scatter plot of time traveled vs distance traveled for the middle trips data
-plot_middle_trips <- middle_trips_data %>% ggplot(aes(x = time_traveled_trip, y = distance_traveled, color = trip_id)) +
+plot_middle_trips <- middle_trips_data %>% ggplot(aes(x = time_traveled_trip, y = distance_traveled, color = as.factor(direction))) +
   geom_point() +
   labs(title = "Time traveled vs Distance traveled", x = "Time traveled (s)", y = "Distance traveled (m)")
 
@@ -154,9 +165,10 @@ filtered_data <- filtered_data %>% anti_join(dead_trips, by = c("id_veiculo", "t
 filtered_data <- filtered_data %>% anti_join(middle_trips, by = c("id_veiculo", "trip_id", "data"))
 
 # Plot a scatter plot of time traveled vs distance traveled for the filtered data
-plot_filtered_data <- filtered_data %>% ggplot(aes(x = time_traveled_trip, y = distance_traveled, color = id_veiculo)) +
-  geom_point() +
-  labs(title = "Time traveled vs Distance traveled", x = "Time traveled (s)", y = "Distance traveled (m)")
+plot_filtered_data <- filtered_data %>% ggplot(aes(x = time_traveled_trip, y = distance_traveled, color = as.factor(direction))) +
+  geom_point(alpha = 0.3) +
+  labs(title = "Tempo de viagem vs Distância percorrida", x = "Tempo de viagem (s)", y = "Distância percorrida (m)") +
+  theme_minimal()
 
 plot_filtered_data
 ```
@@ -208,23 +220,27 @@ max_bin_count <- max(hist(filtered_data$mean_speed_1_min, breaks = 30, plot = FA
 # Plot again the mean speed at 1, 3, 5 and 10 minutes
 p1 <- ggplot(filtered_data, aes(x = mean_speed_1_min)) +
   geom_histogram(bins = 30, fill = "blue", color = "black") +
-  labs(title = "Mean speed at 1 minute", x = "Mean speed (km/h)", y = "Frequency") +
-  ylim(0, max_bin_count*1.1)
+  labs(title = "Velocidade média com 1 minuto de intervalo", x = "Velocidade média (km/h)", y = "Frequência") +
+  ylim(0, max_bin_count*1.1) +
+    theme_minimal()
 
 p2 <- ggplot(filtered_data, aes(x = mean_speed_3_min)) +
     geom_histogram(bins = 30, fill = "blue", color = "black") +
-    labs(title = "Mean speed at 3 minutes", x = "Mean speed (km/h)", y = "Frequency") +
-    ylim(0, max_bin_count*1.1)
+    labs(title = "Velocidade média com 3 minutos de intervalo", x = "Velocidade média (km/h)", y = "Frequência") +
+    ylim(0, max_bin_count*1.1) +
+    theme_minimal()
 
 p3 <- ggplot(filtered_data, aes(x = mean_speed_5_min)) +
     geom_histogram(bins = 30, fill = "blue", color = "black") +
-    labs(title = "Mean speed at 5 minutes", x = "Mean speed (km/h)", y = "Frequency") +
-    ylim(0, max_bin_count*1.1)
+    labs(title = "Velocidade média com 5 minutos de intervalo", x = "Velocidade média (km/h)", y = "Frequência") +
+    ylim(0, max_bin_count*1.1) +
+    theme_minimal()
 
 p4 <- ggplot(filtered_data, aes(x = velocidade_estimada_10_min)) +
     geom_histogram(bins = 30, fill = "blue", color = "black") +
-    labs(title = "Mean speed at 10 minutes", x = "Mean speed (km/h)", y = "Frequency") +
-    ylim(0, max_bin_count*1.1)
+    labs(title = "Velocidade média com 10 minutos de intervalo", x = "Velocidade média (km/h)", y = "Frequência") +
+    ylim(0, max_bin_count*1.1) +
+    theme_minimal()
 
 
 grid.arrange(p1, p2, p3, p4, ncol = 2)
@@ -251,9 +267,10 @@ Agora, vamos analisar a distribuição entre o tempo de viagem e a distância pe
 
 ```{r}
 # Create a scatter plot for the time traveled and the distance traveled colored by vehicle id
-plot_time_distance <- filtered_data %>% ggplot(aes(x = time_traveled_trip, y = distance_traveled, color = id_veiculo)) +
-  geom_point() +
-  labs(title = "Time traveled vs Distance traveled", x = "Time traveled (s)", y = "Distance traveled (m)")
+plot_time_distance <- filtered_data %>% ggplot(aes(x = time_traveled_trip, y = distance_traveled, color = as.factor(direction))) +
+  geom_point(alpha = 0.3) +
+  labs(title = "Tempo de viagem vs Distância percorrida", x = "Tempo de viagem (s)", y = "Distância percorrida (m)") +
+    theme_minimal()
 
 plot_time_distance
 ```
@@ -265,11 +282,47 @@ Agora, vamos ajustar um modelo de regressão linear generalizada para prever o t
 
 ```{r}
 # Fit a linear model to predict the time traveled based on the distance traveled
-linear_model <- glm(time_traveled_trip ~ distance_traveled, data = filtered_data)
+linear_model <- lm(time_traveled_trip ~ distance_traveled, data = filtered_data)
 
 # Print the summary of the linear model
 summary(linear_model)
+
+filtered_data$predicted_time_traveled <- predict(linear_model, newdata = filtered_data)
 ```
+
+Cria um modelo para cada velocidade média estimada (1, 3, 5 e 10 minutos) sendo a distância percorrida uma variável independente.
+
+```{r}
+# Fit a linear model to predict the time traveled based on the distance traveled and the mean speed at 1 minute
+linear_model_speed_1_min <- lm(time_traveled_trip ~ distance_traveled + distance_traveled:mean_speed_1_min, data = filtered_data)
+
+# Fit a linear model to predict the time traveled based on the distance traveled and the mean speed at 3 minutes
+linear_model_speed_3_min <- lm(time_traveled_trip ~ distance_traveled + distance_traveled:mean_speed_3_min, data = filtered_data)
+
+# Fit a linear model to predict the time traveled based on the distance traveled and the mean speed at 5 minutes
+linear_model_speed_5_min <- lm(time_traveled_trip ~ distance_traveled + distance_traveled:mean_speed_5_min, data = filtered_data)
+
+# Fit a linear model to predict the time traveled based on the distance traveled and the mean speed at 10 minutes
+linear_model_speed_10_min <- lm(time_traveled_trip ~ distance_traveled + distance_traveled:velocidade_estimada_10_min, data = filtered_data)
+
+# Print all the summaries of the linear models with the mean speed at 1, 3, and 5 minutes
+summary(linear_model_speed_1_min)
+summary(linear_model_speed_3_min)
+summary(linear_model_speed_5_min)
+summary(linear_model_speed_10_min)
+
+# Create a table with the estimated coefficients of the linear models and their r-squared values
+coefficients_table <- data.frame(
+  model = c("linear_model", "linear_model_speed_1_min", "linear_model_speed_3_min", "linear_model_speed_5_min", "linear_model_speed_10_min"),
+  r_squared = c(summary(linear_model)$r.squared, summary(linear_model_speed_1_min)$r.squared, summary(linear_model_speed_3_min)$r.squared, summary(linear_model_speed_5_min)$r.squared, summary(linear_model_speed_10_min)$r.squared),
+  intercept = c(coef(linear_model)["(Intercept)"], coef(linear_model_speed_1_min)["(Intercept)"], coef(linear_model_speed_3_min)["(Intercept)"], coef(linear_model_speed_5_min)["(Intercept)"], coef(linear_model_speed_10_min)["(Intercept)"]),
+  distance_traveled = c(coef(linear_model)["distance_traveled"], coef(linear_model_speed_1_min)["distance_traveled"], coef(linear_model_speed_3_min)["distance_traveled"], coef(linear_model_speed_5_min)["distance_traveled"], coef(linear_model_speed_10_min)["distance_traveled"]),
+  average_speed = c(NA, coef(linear_model_speed_1_min)["mean_speed_1_min"], coef(linear_model_speed_3_min)["mean_speed_3_min"], coef(linear_model_speed_5_min)["mean_speed_5_min"], coef(linear_model_speed_10_min)["velocidade_estimada_10_min"])
+)
+
+```
+
+
 
 O modelo linear simples ajustado possui um R² de 0.7712, o que indica que a distância percorrida explica 77.12% da variabilidade no tempo de viagem. Além disso, o p-valor associado ao coeficiente da distância percorrida é menor que 0.05, o que indica que a distância percorrida é estatisticamente significativa para prever o tempo de viagem.
 
@@ -277,7 +330,7 @@ Agora, dado que a direção do veículo pode influenciar o tempo de viagem, vamo
 
 ```{r}
 # Fit a generalized linear model to predict the time traveled based on the distance traveled and the direction
-interaction_model <- glm(time_traveled_trip ~ distance_traveled * direction, data = filtered_data)
+interaction_model <- glm(time_traveled_trip ~ distance_traveled:as.factor(direction), data = filtered_data)
 
 # Print the summary of the interaction model
 summary(interaction_model)
@@ -289,7 +342,7 @@ Agora, vamos adicionar a velocidade média estimada a cada 10 minutos como uma v
 
 ```{r}
 # Fit a generalized linear model to predict the time traveled based on the distance traveled, the direction, and the mean speed at 10 minutes
-speed_model <- glm(time_traveled_trip ~ distance_traveled * direction + velocidade_estimada_10_min, data = filtered_data)
+speed_model <- lm(time_traveled_trip ~ distance_traveled:as.factor(direction) + distance_traveled:as.factor(direction):mean_speed_5_min, data = filtered_data)
 
 # Print the summary of the speed model
 summary(speed_model)
@@ -307,7 +360,8 @@ filtered_data$predicted_time_traveled <- predict(speed_model, newdata = filtered
 plot_predicted_time <- filtered_data %>% ggplot(aes(x = time_traveled_trip, y = predicted_time_traveled)) +
   geom_point(color = "blue") +
   geom_abline(intercept = 0, slope = 1, color = "red") +
-  labs(title = "Real time traveled vs Predicted time traveled", x = "Real time traveled (s)", y = "Predicted time traveled (s)")
+  labs(title = "Tempo de viagem real vs Tempo de viagem previsto", x = "Tempo de viagem real (s)", y = "Tempo de viagem previsto (s)")+
+    theme_minimal()
 
 plot_predicted_time
 ```
@@ -321,7 +375,8 @@ filtered_data$error <- filtered_data$time_traveled_trip - filtered_data$predicte
 # Create a boxplot for the errors of the model for each interval of 500 meters traveled
 plot_errors <- filtered_data %>% filter(distance_traveled <= 10000) %>% ggplot(aes(x = cut(distance_traveled, breaks = seq(0, 10000, by = 500)), y = error)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the model for each interval of 500 meters traveled", x = "Distance traveled (m)", y = "Error (s)") + ylim(-1200, 1200)
+  labs(title = "Erros do modelo para cada intervalo de 500 metros percorridos", x = "Distância percorrida (m)", y = "Erro (s)") + ylim(-1200, 1200) +
+    theme_minimal()
 
 plot_errors
 ```
@@ -333,7 +388,7 @@ Agora, para garantir que os tempos de viagem previstos pelo modelo sejam positiv
 filtered_data$time_traveled_trip[filtered_data$time_traveled_trip == 0] <- 1
 
 # Fit a generalized linear model with a gamma distribution to predict the time traveled based on the distance traveled, the direction, and the mean speed at 10 minutes
-gamma_model <- glm(time_traveled_trip ~ distance_traveled * direction + velocidade_estimada_10_min, data = filtered_data, family = "Gamma")
+gamma_model <- glm(time_traveled_trip ~ distance_traveled:as.factor(direction) + distance_traveled:as.factor(direction):mean_speed_5_min, data = filtered_data, family = "Gamma")
 
 # Print the summary of the gamma model
 summary(gamma_model)
@@ -351,7 +406,8 @@ filtered_data$predicted_time_traveled_gamma <- predict(gamma_model, newdata = fi
 plot_predicted_time_gamma <- filtered_data %>% ggplot(aes(x = time_traveled_trip, y = predicted_time_traveled_gamma)) +
   geom_point(color = "blue") +
   geom_abline(intercept = 0, slope = 1, color = "red") +
-  labs(title = "Real time traveled vs Predicted time traveled (gamma model)", x = "Real time traveled (s)", y = "Predicted time traveled (s)")
+  labs(title = "Tempo de viagem real vs Tempo de viagem previsto", x = "Tempo de viagem real (s)", y = "Tempo de viagem previsto (s)") +
+    theme_minimal()
 
 plot_predicted_time_gamma
 ```
@@ -365,7 +421,9 @@ filtered_data$error_gamma <- filtered_data$time_traveled_trip - filtered_data$pr
 # Create a boxplot for the errors of the gamma model for each interval of 500 meters traveled
 plot_errors_gamma <- filtered_data %>% filter(distance_traveled <= 10000) %>% ggplot(aes(x = cut(distance_traveled, breaks = seq(0, 10000, by = 500)), y = error_gamma)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the gamma model for each interval of 500 meters traveled", x = "Distance traveled (m)", y = "Error (s)") + ylim(-1200, 1200)
+  labs(title = "Erros do modelo gamma para cada intervalo de 500 metros percorridos", x = "Distância percorrida (m)", y = "Erro (s)") +
+   ylim(-1200, 1200) +
+    theme_minimal()
 
 plot_errors_gamma
 ```
@@ -382,11 +440,13 @@ filtered_data$error <- filtered_data$time_traveled_trip - filtered_data$predicte
 # Plot the errors of the model for each day of the week and time period
 plot_errors_week_day <- filtered_data %>% ggplot(aes(x = week_day, y = error)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the model for each day of the week", x = "Day of the week", y = "Error (s)") + ylim(-2400, 2400)
+  labs(title = "Erros do modelo para cada dia da semana", x = "Dia da semana", y = "Erro (s)") + ylim(-2400, 2400) +
+    theme_minimal()
 
 plot_errors_time_period <- filtered_data %>% ggplot(aes(x = time_period, y = error)) +
     geom_boxplot(fill = "blue", color = "black") +
-    labs(title = "Errors of the model for each time period", x = "Time period", y = "Error (s)") + ylim(-2400, 2400)
+    labs(title = "Erros do modelo para cada período do dia", x = "Período do dia", y = "Erro (s)") + ylim(-2400, 2400) +
+    theme_minimal()
 
 grid.arrange(plot_errors_week_day, plot_errors_time_period, nrow = 2)
 ```
@@ -397,7 +457,7 @@ Agora, vamos ajustar um modelo de regressão linear generalizada com uma distrib
 
 ```{r}
 # Fit a generalized linear model with a normal distribution to predict the time traveled based on the distance traveled, the direction, the mean speed at 10 minutes, and if it is weekend or not
-weekend_model <- glm(time_traveled_trip ~ (distance_traveled + distance_traveled:direction)*is_weekend + velocidade_estimada_10_min, data = filtered_data, family = "gaussian")
+weekend_model <- lm(time_traveled_trip ~ distance_traveled:as.factor(direction):as.factor(is_weekend) + distance_traveled:as.factor(direction):mean_speed_5_min, data = filtered_data)
 
 # Print the summary of the weekend model
 summary(weekend_model)
@@ -420,7 +480,8 @@ filtered_data$error_weekend <- filtered_data$time_traveled_trip - filtered_data$
 # Plot the errors of the weekend model for each day of the week
 plot_errors_week_day <- filtered_data %>% ggplot(aes(x = week_day, y = error_weekend)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the weekend model for each day of the week", x = "Day of the week", y = "Error (s)") + ylim(-2400, 2400)
+  labs(title = "Erros do modelo para cada dia da semana", x = "Dia da semana", y = "Erro (s)") + ylim(-2400, 2400) +
+    theme_minimal()
 
 plot_errors_week_day
 ```
@@ -431,7 +492,8 @@ Agora, vamos plotar, para cada dia da semana, o erro do modelo para cada interva
 # Plot the errors of the weekend model for each day of the week and each interval of 500 meters traveled
 plot_errors_week_day_distance <- filtered_data %>% filter(distance_traveled <= 10000) %>% ggplot(aes(x = cut(distance_traveled, breaks = seq(0, 10000, by = 500)), y = error_weekend)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the weekend model for each day of the week and each interval of 500 meters traveled", x = "Distance traveled (m)", y = "Error (s)") + ylim(-1200, 1200) + facet_wrap(~week_day)
+  labs(title = "Erros do modelo para cada dia da semana e cada intervalo de 500 metros percorridos", x = "Distância percorrida (m)", y = "Erro (s)") + ylim(-1200, 1200) + facet_wrap(~week_day) +
+    theme_minimal()
 
 plot_errors_week_day_distance
 ```
@@ -442,7 +504,9 @@ Agora, vamos plotar, para cada período do dia, o erro do modelo para cada dia d
 # Plot the errors of the weekend model for each time period and each day of the week
 plot_errors_time_period_week_day <- filtered_data %>% ggplot(aes(x = week_day, y = error_weekend)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the weekend model for each time period and each day of the week", x = "Day of the week", y = "Error (s)") + ylim(-1200, 1200) + facet_wrap(~time_period)
+  labs(title = "Erros do modelo para cada dia da semana e cada período do dia", x = "Dia da semana", y = "Erro (s)") +
+  ylim(-1200, 1200) + facet_wrap(~time_period) +
+    theme_minimal()
 
 plot_errors_time_period_week_day
 
@@ -454,7 +518,7 @@ Agora, vamos ajustar um modelo de regressão linear generalizada com uma distrib
 
 ```{r}
 # Fit a generalized linear model with a normal distribution to predict the time traveled based on the distance traveled, the direction, the mean speed at 10 minutes, if it is weekend or not, and the time period
-time_period_model <- glm(time_traveled_trip ~ (distance_traveled + distance_traveled:direction)*is_weekend + time_period + velocidade_estimada_10_min, data = filtered_data, family = "gaussian")
+time_period_model <- lm(time_traveled_trip ~ distance_traveled:as.factor(direction):as.factor(is_weekend) + distance_traveled:as.factor(direction):mean_speed_5_min + time_period:as.factor(direction) -1, data = filtered_data)
 
 # Print the summary of the time period model
 summary(time_period_model)
@@ -472,7 +536,8 @@ filtered_data$error_time_period <- filtered_data$time_traveled_trip - filtered_d
 # Plot the errors of the time period model for each day of the week
 plot_errors_time_period_week_day <- filtered_data %>% ggplot(aes(x = week_day, y = error_time_period)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the time period model for each day of the week", x = "Day of the week", y = "Error (s)") + ylim(-2400, 2400) + facet_wrap(~time_period)
+  labs(title = "Erros do modelo para cada dia da semana", x = "Dia da semana", y = "Erro (s)") + ylim(-2400, 2400) +
+    theme_minimal()
 
 plot_errors_time_period_week_day
 ```
@@ -483,7 +548,8 @@ Plotando os erros do modelo para cada dia da semana para cada intervalo de 500 m
 # Plot the errors of the time period model for each day of the week and each interval of 500 meters traveled
 plot_errors_time_period_week_day_distance <- filtered_data %>% filter(distance_traveled <= 10000) %>% ggplot(aes(x = cut(distance_traveled, breaks = seq(0, 10000, by = 500)), y = error_time_period)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the time period model for each day of the week and each interval of 500 meters traveled", x = "Distance traveled (m)", y = "Error (s)") + ylim(-1200, 1200) + facet_wrap(~week_day)
+  labs(title = "Erros do modelo para cada dia da semana e cada intervalo de 500 metros percorridos", x = "Distância percorrida (m)", y = "Erro (s)") + ylim(-1200, 1200) + facet_wrap(~week_day) +
+    theme_minimal()
 
 plot_errors_time_period_week_day_distance
 ```
@@ -495,7 +561,8 @@ Agora, vamos plotar a relação entre o tempo de viagem previsto pelo modelo e o
 plot_predicted_time_time_period <- filtered_data %>% ggplot(aes(x = time_traveled_trip, y = predicted_time_traveled_time_period)) +
   geom_point(color = "blue") +
   geom_abline(intercept = 0, slope = 1, color = "red") +
-  labs(title = "Real time traveled vs Predicted time traveled (time period model)", x = "Real time traveled (s)", y = "Predicted time traveled (s)")
+  labs(title = "Tempo de viagem real vs Tempo de viagem previsto", x = "Tempo de viagem real (s)", y = "Tempo de viagem previsto (s)") +
+    theme_minimal()
 
 plot_predicted_time_time_period
 ```
@@ -504,7 +571,8 @@ plot_predicted_time_time_period
 ```{r}
 plot_errors_week_day_distance <- filtered_data %>% filter(distance_traveled <= 10000) %>% ggplot(aes(x = cut(distance_traveled, breaks = seq(0, 10000, by = 500)), y = error_time_period)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the weekend model for each day of the week and each interval of 500 meters traveled", x = "Distance traveled (m)", y = "Error (s)") + ylim(-1200, 1200) + facet_wrap(~week_day)
+  labs(title = "Erros do modelo para cada dia da semana e cada intervalo de 500 metros percorridos", x = "Distância percorrida (m)", y = "Erro (s)") + ylim(-1200, 1200) + facet_wrap(~week_day) +
+    theme_minimal()
 
 plot_errors_week_day_distance
 ```
@@ -536,7 +604,8 @@ mape_time_period
 # Plot the errors of the time period model for each day of the week and each interval of 500 meters traveled
 plot_errors_time_period_week_day_distance <- filtered_data %>% filter(distance_traveled <= 5000) %>% ggplot(aes(x = cut(distance_traveled, breaks = seq(0, 5000, by = 500)), y = error_time_period)) +
   geom_boxplot(fill = "blue", color = "black") +
-  labs(title = "Errors of the time period model for each day of the week and each interval of 500 meters traveled", x = "Distance traveled (m)", y = "Error (s)") + ylim(-1000, 1000) + facet_wrap(~week_day)
+  labs(title = "Erros do modelo para cada dia da semana e cada intervalo de 500 metros percorridos", x = "Distância percorrida (m)", y = "Erro (s)") + ylim(-1200, 1200) + facet_wrap(~week_day) +
+    theme_minimal()
 
 plot_errors_time_period_week_day_distance
 ```
