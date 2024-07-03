@@ -7,11 +7,22 @@ import src.utils as utils
 
 class GTFSHandler:
     def __init__(self, gtfs_folder_path):
+        """
+        Initialize the GTFSHandler with the path to the folder containing GTFS data files.
+
+        Args:
+            gtfs_folder_path (str): Path to the folder containing GTFS data files.
+        """
+
         self.gtfs_folder_path = gtfs_folder_path
 
         self.load_data()
 
     def load_data(self):
+        """
+        Load GTFS data from the specified folder.
+        """
+
         self.agencies = pd.read_csv(f"{self.gtfs_folder_path}/agency.txt")
         self.calendar = pd.read_csv(f"{self.gtfs_folder_path}/calendar.txt")
         self.calendar_dates = pd.read_csv(f"{self.gtfs_folder_path}/calendar_dates.txt")
@@ -28,6 +39,12 @@ class GTFSHandler:
         print("GTFS data loaded successfully!")
 
     def filter_by_route(self, route_short_name):
+        """
+        Filter the GTFS data by the specified route short name.
+
+        Args:
+            route_short_name (str): Short name of the route to filter by.
+        """
 
         print(f"Filtering the data by the route {route_short_name}...")
         print("DF ROUTE ID HEAD:", self.routes[self.routes['route_short_name'] == route_short_name].head())
@@ -66,6 +83,16 @@ class GTFSHandler:
         self.route_shape_segments = [tuple(self.route_shape_points[i:i+2]) for i in range(len(self.route_shape_points)-1)]
 
     def get_route_segments_by_direction(self, direction_id):
+        """
+        Get the route segments for the specified direction.
+
+        Args:
+            direction_id (int): Identifier of the direction.
+
+        Returns:
+            list: List of route segments for the specified direction.
+        """
+
         assert len(self.route_shape_ids) >= 1, "Please filter the data by a route first!"
 
         # Get the shape ids for the direction
@@ -80,6 +107,16 @@ class GTFSHandler:
         return shape_segments
     
     def get_shape_by_direction(self, direction_id):
+        """
+        Get the shape for the specified direction.
+
+        Args:
+            direction_id (int): Identifier of the direction.
+
+        Returns:
+            pandas.DataFrame: Dataframe containing shape points for the specified direction.
+        """
+
         assert len(self.route_shape_ids) >= 1, "Please filter the data by a route first!"
 
         # Get the shape ids for the direction
@@ -89,6 +126,13 @@ class GTFSHandler:
         return self.shapes[self.shapes['shape_id'].isin(shape_ids)]
 
     def plot_route(self, title='Route', save_path=None):
+        """
+        Plot the route on a map, optionally saving the plot.
+
+        Args:
+            title (str, optional): Title of the plot. Defaults to 'Route'.
+            save_path (str, optional): Path to save the plot image. Defaults to None.
+        """
         
         assert len(self.route_shape_ids) >= 1, "Please filter the data by a route first!"
 
@@ -122,6 +166,10 @@ class GTFSHandler:
         plt.close()
 
     def get_stops_by_direction(self):
+        """
+        Get the stops and distances by direction for the filtered route.
+        """
+
         # Get the route directions
         route_directions = self.route_stops['direction_id'].unique()
 
@@ -136,5 +184,3 @@ class GTFSHandler:
             self.stops_by_direction.append(self.route_stops[self.route_stops['direction_id'] == direction])
             # Get a np array with the stop_distance for each stop and each direction
             self.stops_distances_by_direction.append(np.array(self.stops_by_direction[direction]['stop_distance'].values))
-
-    
