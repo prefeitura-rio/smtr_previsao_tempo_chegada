@@ -7,7 +7,8 @@ Este projeto visa processar dados de GPS e GTFS para análise de rotas e veícul
 - `preprocess_data.py`: Script Python que realiza o pré-processamento dos dados de GPS e GTFS, resultando em novos arquivos CSVs com os dados filtrados e com novas features.
 - `preprocess_example.ipynb`: Notebook para execução e visualização do processo de pré-processamento. Apresenta uma execução interativa do pipeline, com visualizações que exibem os resultados de cada etapa.
 - `requirements.txt`: Lista de dependências necessárias para executar o projeto em Python.
-- `model.r`: Arquivo contendo modelos em R para análise dos dados.
+- `model.R`: Script em R que realiza um novo tratamento dos dados de um arquivo CSV e avalia um modelo de regressão linear generalizada.
+- `model_report.rmd`: Relatório em R Markdown que descreve o processo de modelagem e avaliação do modelo de regressão linear generalizada.
 
 ### Diretórios
 - `data/gps_data`: Contém os arquivos CSV de dados de GPS. Os arquivos são resultados de queries no banco de dados (BigQuery), contendo as informações dos ônibus em movimento.
@@ -16,7 +17,10 @@ Este projeto visa processar dados de GPS e GTFS para análise de rotas e veícul
 - `src/gtfs_handler.py`: Módulo Python que contém a classe `GTFSHandler`, responsável por carregar, processar e visualizar os dados de GTFS.
 - `src/utils.py`: Módulo Python que contém funções utilitárias para o pré-processamento dos dados, otimizadas para a execução do pipeline através de funções modulares, numpy e numba (JIT).
 
-## Como executar o pré-processamento?
+# Pré-processamento
+
+## Como executar
+
 Para instalar as dependências necessárias, execute:
 ```bash
 pip install -r requirements.txt
@@ -86,12 +90,6 @@ Os dados de GPS e as rotas são plotados para visualização. Embora sirva apena
 gps.get_bus_data(bus)   
 ```
 Filtra as coordenadas de GPS com base em cada ônibus, permitindo o processamento individual de cada veículo.
-
-### 7. Processamento de Dados de GPS
-```python
-utils.process_bus_data(gps, gtfs, bus, route, bus_output_path)
-```
-Corresponde ao núcleo do pipeline de pré-processamento, onde os dados de GPS são processados e enriquecidos com informações de GTFS. As etapas de processamento incluem:
 
 ### 7. Processamento de Dados de GPS
 ```python
@@ -183,8 +181,68 @@ A fim de arquivar alguns conjuntos de dados intermediários, são salvos os segu
 
 Além disso, fora do escopo da função `process_bus_data`, os dados de GPS filtrados e de validação são agregados em um único arquivo CSV, que armazena os dados por rota, a fim de facilitar o desenvolvimento de modelos individuais para cada rota. Essa rotina, implementada ao final do arquivo `preprocess_data.py`, é responsável por concatenar os dados de GPS filtrados e de validação para cada rota e salvar o resultado em um arquivo CSV.
 
-## Utilização
-Para executar o pipeline de pré-processamento, basta rodar o script `preprocess_data.py` para realizar o pré-processamento sobre todos os dados no diretório de origem, ou utilizar o notebook `main.ipynb` para uma execução interativa de algum arquivo/dia/rota/ônibus específico (indicando os parâmetros no início do notebook).
+# Modelagem
+
+## Como executar
+
+Primeiramente, é necessário instalar as dependências necessárias para a execução do script em R. Para isso, execute:
+
+```R
+install.packages("tidyverse")
+```
+
+Tendo instalado as dependências, defina o caminho do arquivo CSV com os dados tratados (variável `SOURCE_DATA_DIR`) e o caminho do arquivo CSV com os dados tratados (variável `TREATED_DATA_DIR`) no script `model.R`. Em seguida, execute o script para realizar o tratamento dos dados e avaliação do modelo de regressão linear generalizada.
+
+```bash
+Rscript model.R
+```
+
+## Pipeline de Tratamento 
+O arquivo `model.R` é um script em R que processa os dados de um arquivo csv e avalia um modelo de regressão linear generalizada com os seguintes preditores: distância percorrida, direção, velocidade média em 5 minutos, se é final de semana ou não e o período do dia.
+
+O script possui duas funções principais:
+
+### 1. `treat_data`
+
+A função `treat_data` recebe o caminho do arquivo csv com os dados e o número da rota e retorna os dados tratados. Os dados tratados são salvos em um arquivo csv na pasta definida pela variável `TREATED_DATA_DIR`. Além disso, a função salva três gráficos na pasta `plots`:
+
+- Um gráfico de dispersão do tempo de viagem vs distância percorrida para viagens em que o ônibus estava parado (*dead trips*).
+- Um gráfico de dispersão do tempo de viagem vs distância percorrida para viagens em que o ônibus estava no meio da rota (*middle trips*).
+- Um gráfico de dispersão do tempo de viagem vs distância percorrida para viagens válidas.
+
+Os thresholds para considerar uma viagem inválida são definidos e podem ser alterados nas seguintes variáveis:
+
+- `wrong_direction_count`: número mínimo de pontos de dados para considerar uma viagem com direção errada (padrão = 5).
+
+- `dead_trips_count`: número mínimo de pontos de dados para considerar uma viagem morta (padrão = 20).
+
+- `dead_trips_threshold`: limite de distância percorrida para considerar uma viagem morta (padrão = 100).
+
+- `max_distance_traveled`: limite de distância percorrida para considerar uma viagem no meio da rota (padrão = 2000).
+
+### 2. `evaluate_model`
+
+A função `evaluate_model` recebe o caminho do arquivo csv com os dados e o número da rota e retorna o AIC e o RMSE do modelo de regressão linear generalizada. Além disso, a função salva três gráficos na pasta `plots`:
+
+- Um gráfico de caixa dos erros do modelo de período de tempo para cada dia da semana.
+- Um gráfico de caixa dos erros do modelo de período de tempo para cada dia da semana e cada intervalo de 500 metros percorridos.
+- Um gráfico de dispersão do tempo de viagem previsto vs real.
+
+## Exemplo de Uso
+
+```R
+# Tratamento dos dados
+filtered_data <- treat_data("409_train_data.csv", "409")
+
+# Salva os dados tratados em um arquivo csv
+write.csv(filtered_data, "409_train_data_treated.csv", row.names = FALSE)
+
+# Avaliação do modelo
+metrics <- evaluate_model("409_train_data_treated.csv", "409")
+
+# Printa as métricas do modelo
+print(metrics)
+```
 
 ## Conclusão
-Este projeto oferece uma pipeline robusta para o pré-processamento de dados de GPS e GTFS, facilitando análises detalhadas de rotas e veículos. Siga as etapas descritas para preparar seus dados e realizar suas análises.
+Este projeto oferece uma pipeline robusta para o pré-processamento de dados de GPS e GTFS, facilitando análises detalhadas de rotas e veículos. Além disso, o modelo de regressão linear generalizada implementado em R permite avaliar o tempo de viagem de ônibus com base em variáveis como distância percorrida, direção, velocidade média, dia da semana e período do dia. Siga as etapas descritas para preparar seus dados e realizar suas análises.
