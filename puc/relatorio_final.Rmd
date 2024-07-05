@@ -8,15 +8,23 @@ author:
 subtitle: Previsão do tempo de chegada dos ônibus
 output:
   pdf_document: default
-  html_document:
-    df_print: paged
-  word_document: default
-header-includes: \renewcommand{\and}{\\}
+header-includes: 
+    - \renewcommand{\and}{\\}
+    - \usepackage{hyperref}
+bibliography: refs.bib
+nocite: '@*'
+lang: pt-br
+linkcolor: blue
+urlcolor: blue
+citecolor: blue
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, fig.align = "center", out.width = "80%")
 library(dplyr)
+library(ggplot2)
+library(sf)
+library(lwgeom)
 ```
 
 ## 1. Introdução
@@ -41,7 +49,7 @@ Para chegar em previsões de tempo de chegada, tivemos como passos intermediári
     
 ## 3. Dados
 
-Utilizamos os dados de GPS dos ônibus e do GTFS da SMTR no Datalake da Prefeitura. A tabela abaixo resume os dados encontrados em cada uma das bases de dados.
+Utilizamos os dados de GPS dos ônibus e do [GTFS](https://gtfs.org/) da SMTR disponíveis no [Datalake da Prefeitura do Rio de Janeiro](https://www.dados.rio/datalake). A tabela abaixo resume os dados encontrados em cada uma das bases de dados.
 
 |Base de dados|Informação|
 |:------------|:---------|
@@ -58,7 +66,40 @@ Para conseguir treinar os modelos, precisamos montar uma base de validação que
 
 Grande parte dos serviços de ônibus tem mais de um itinerário possível descrito nos dados do GTFS -- em maioria, um de ida e um de volta. Cada itinerário é acompanhado de um código, registrado na variável shape_id. Para prever os tempos de chegada, foi necessário identificar corretamente a shape_id de cada observação.
 
-O objetivo foi encontrar a menor distância possível entre um ponto e um polígono, e projetar o pontp de GPS naquela aresta. Pela distância total de cada itinerário, calculamos quantos metros cada ônibus viajou desde seu ponto de partida.
+Para isso, encontramos a menor distância possível entre cada localização dos ônibus e os polígonos de seus itinerários, e projetamos o ponto de GPS naquela aresta. Pela distância total de cada itinerário, calculamos quantos metros cada ônibus viajou desde seu ponto de partida. Esse processo é ilustrado na \autoref{fig1}, que mostra observações fictícias do ônibus 309 (pontos vermelhos) sendo projetadas em seu itinerário. Para cada ponto projetado, calculamos a distância percorrida ao longo da rota desde o ponto de partida.
+
+```{r, warning = FALSE, message = FALSE, fig.cap="\\label{fig1}Projeção dos pontos"}
+set.seed(271)
+
+itineraries <- readr::read_rds("output/itineraries.rds") %>%
+    filter(servico == "309")
+
+map <- readr::read_rds("output/map.rds") %>%
+    sf::st_crop(
+        sf::st_bbox(sf::st_buffer(itineraries, 5000))
+    )
+
+sample_points <- sf::st_geometry(itineraries) %>%
+    sf::st_sample(25, type = "regular") %>%
+    {.[sf::st_dimension(.) == 0]} %>%
+    {.[!sf::st_is_empty(.)]} %>%
+    {.[sf::st_is_longlat(.)]} %>%
+    sf::st_jitter(factor = 0.1)
+
+distance_lines <- sf::st_nearest_points(sample_points, itineraries)
+
+start <- st_startpoint(distance_lines)
+
+end <- st_endpoint(distance_lines)
+
+ggplot(itineraries, aes(geometry = geometry)) +
+    geom_sf(data = map, fill = "transparent") +
+    geom_sf(color = "darkblue") +
+    geom_sf(data = start, color = "red") +
+    geom_sf(data = end, color = "red", shape = 1) +
+    geom_sf(data = distance_lines) +
+    ggthemes::theme_map()
+```
 
 No nosso código, declaramos que uma shape_id está correta se a distância viajada pelo ônibus cresce por 5 observações seguidas. Isso indica que o ônibus está, de fato, indo na direção prescrita por esse itinerário. Removemos observações em que ainda havia ambiguidade, restando mais de um itinerário possível para o ônibus.
 
@@ -103,10 +144,15 @@ O problema de previsão que enfrentamos é tratado com modelos de regressão: mo
 * Regressão linear: modelos de média condicional ainda simples. Testamos diversas especificações, incluindo efeitos fixos de serviço-hora e coeficientes variáveis por serviço-hora. Optamos por não utilizar esses modelos na base completa, porque eles tinham poucos ganhos em relação às médias históricas.
 
 * Floresta Aleatória: modelos de regressão não-linear, calculados a partir da média de muitas árvores de regressão.
- ** Testamos diferentes números de árvores e profundidades. A previsão performou melhor pouco acima de 300 árvores, então este foi o valor escolhido. Deixamos a profundidade sem um limite manual, a ser determinada pelo algoritmo de otimização.A variável Shape_id entrou como variável categórica.
 
-* Redes Neurais: classe de modelos mais comum na literatura.
- ** Usamos uma arquitetura simples com 12 neurônios de entrada, um hidden layer com 6 neurônios e função de ativação ReLu. Além de um neurônio de saída com ativação linear. Usamos otimização por gradiente estocástico, ajustando os hiperparâmetros de batch_size (foi usado um valor relativamente pequeno) e de número de epochs, com early stopping quando a perda na base de validação estagnava. Além disso,padronizamos todas as variáveis para média 0 e desvio padrão 1, e fizemos one-hot encoding na variável de shape_id.
+    * Testamos diferentes números de árvores e profundidades. A previsão parou de melhorar acima de 300 árvores, então este foi o valor escolhido. Deixamos a profundidade sem um limite manual, a ser determinada pelo algoritmo de otimização. A variável shape_id entrou como variável categórica.
+
+* Redes Neurais: classe de modelos tida por @reich2019survey como a de maior sucesso na literatura de previsão de tempos de ônibus. @tran2020deeptrans também mostra que redes neurais profundas podem gerar boas previsões, incorporando informações de trânsito.
+
+    * Usamos uma arquitetura simples com 12 neurônios de entrada, um hidden layer com 6 neurônios e função de ativação ReLu, e um neurônio de saída com ativação linear. Usamos otimização por gradiente estocástico, ajustando os hiperparâmetros de batch_size (foi usado um valor relativamente pequeno) e de número de epochs, com early stopping quando a perda na base de validação estagnava. Além disso, padronizamos todas as variáveis para média 0 e desvio padrão 1, e fizemos one-hot encoding na variável de shape_id.
+    
+    * Também testamos uma arquitetura com duas camadas ocultas, mas não houve grandes mudanças no desempenho.
+ 
 
 Todos os modelos foram treinados utilizando dados de 01/05/2024 até 21/05/2024, separados por linha. Então testamos o desempenho dos modelos na base de teste, de 22/05/2024 até 31/05/2024, e calculamos as seguintes medidas de erro de previsão, onde $y$ é o tempo de chegada observado, e $\widehat{y}$ é o tempo de chegada previsto pelos modelos. Agregamos os erros de cada linha por médias ponderadas pelo número de observações. Para ser computacionalmente viável, usamos uma amostra aleatória de 10\% das observações no período.
 
@@ -145,17 +191,17 @@ knitr::kable(
 )
 ```
 
-O modelo de melhor desempenho foi o Random Forest. Ele obteve um erro quadrático médio com raiz abaixo de 3 minutos, erro absoluto médio inferior a 2 minutos, e erro percentual de menos de 20\%. O desvio absoluto mediano significa que, em 50\% das observações, o erro desviou menos de 0,9 minutos de sua mediana. Isso indica que o modelo tem excelentes previsões na maior parte do tempo. O gráfico 1 mostra como a qualidade das previsões varia com quantos pontos à frente a previsão é feita.
+O modelo de melhor desempenho foi o Random Forest. Ele obteve um erro quadrático médio com raiz abaixo de 3 minutos, erro absoluto médio inferior a 2 minutos, e erro percentual de menos de 20\%. O desvio absoluto mediano significa que, em 50\% das observações, o erro desviou menos de 0,9 minutos de sua mediana. Isso indica que o modelo tem excelentes previsões na maior parte do tempo. A \autoref{fig2} mostra como a qualidade das previsões varia com quantos pontos à frente a previsão é feita.
 
 
-```{r, out.width="80%", fig.cap="Gráfico 1 - Raiz do erro quadrático médio"}
+```{r, out.width="80%", fig.cap="\\label{fig2}Raiz do erro quadrático médio"}
 knitr::include_graphics("output/plot_performance_rmse.png")
 ```
 
-Vemos que o Random Forest tem sempre erros menores do que os demais modelos. Prevendo até 5 pontos à frente, o RMSE é inferior a 2 minutos; 10 pontos à frente, inferior a 2,5 minutos; e, mesmo 20 pontos à frente, é inferior a 4 minutos. O gráfico 2 mostra os erros em termos percentuais. Omitimos o modelo de Rede Neural, que tinha erros muito elevados.
+Vemos que o Random Forest tem sempre erros menores do que os demais modelos. Prevendo até 5 pontos à frente, o RMSE é inferior a 2 minutos; 10 pontos à frente, inferior a 2,5 minutos; e, mesmo 20 pontos à frente, é inferior a 4 minutos. A \autoref{fig3} mostra os erros em termos percentuais. Omitimos o modelo de Rede Neural, que tinha erros muito elevados.
 
 
-```{r, out.width="80%", fig.cap="Gráfico 2 - Erro percentual absoluto médio"}
+```{r, out.width="80%", fig.cap="\\label{fig3}Erro percentual absoluto médio"}
 knitr::include_graphics("output/plot_performance_mape.png")
 ```
 
@@ -195,9 +241,9 @@ Para que as previsões sejam aplicadas na prática, essa manipulação de dados 
 * Podem ser necessários recursos de computação em nuvem para treinar os modelos com grande volume de dados.
 
 * Diferentes arquiteturas de Rede Neural e de Random Forest ainda podem ser testadas. Em particular, pode-se treinar os modelos alimentados apenas das variáveis originais do GPS -- longitude, latitude, serviço, horário, e velocidade. Esses modelos podem ser treinados com custo computacional muito mais baixo. Além de serem mais simples, os dados em tempo real não precisarão passar por pré-processamento para que eles dêem uma previsão, o que deve facilitar a implementação.
-*O Random Forest sem utilizar a variável shape_id performou bem. O modelo é capaz de perceber padrões mesmo com menos dados, e considerar se a direção do trajeto do ônibus. A única ressalva é se houver mudança dos itinerários que poderia atrapalhar a projeção.
 
-## 9. Referências:
-TRAN, L.; MUN, M. Y.; LIM, M.; YAMATO, J.; HUH, N. DeepTRANS: a deep learning system for public bus travel time estimation using traffic forecasting.
-BIAU, G.; SCORNET, E. A random forest guided tour. Test, Springer, 2016.
+* O Random Forest sem utilizar a variável shape_id performou bem. Isso indica que o modelo é capaz de perceber padrões de itinerários mesmo com menos dados. A única ressalva é que, se houver mudança dos itinerários, a projeção pode ser muito pouco precisa.
 
+## 9. Referências
+
+* Todos os códigos utilizados e resultados produzidos podem ser acessados no [repositório do projeto](https://github.com/prefeitura-rio/smtr_previsao_tempo_chegada/tree/master/puc) no GitHub.
